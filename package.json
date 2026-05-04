@@ -10,7 +10,7 @@
   "type": "commonjs",
   "private": true,
   "engines": {
-    "node": ">=18"
+    "node": "18.x"
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",
