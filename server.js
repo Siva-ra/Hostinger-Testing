@@ -1,8 +1,8 @@
 const express = require("express");
 const cors = require("cors");
 const bcrypt = require("bcryptjs");
-const nodemailer = require("nodemailer");
 const { Pool } = require("pg");
+const { Resend } = require("resend");
 require("dotenv").config();
 
 const app = express();
@@ -20,20 +20,8 @@ db.connect()
   .then(() => console.log("✅ PostgreSQL Connected"))
   .catch(err => console.error("❌ DB ERROR:", err.message));
 
-/* ================= MAIL ================= */
-/* ⚠️ This WILL fail on Render sometimes (Gmail blocks servers) */
-const transporter = nodemailer.createTransport({
-  host: "smtp.gmail.com",
-  port: 587,
-  secure: false,
-  auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS,
-  },
-  connectionTimeout: 10000
-});
-
-
+/* ================= RESEND ================= */
+const resend = new Resend(process.env.RESEND_API_KEY);
 
 /* ================= OTP ================= */
 function generateOTP() {
@@ -84,34 +72,31 @@ app.post("/signup", async (req, res) => {
       [userId, otp, expiresAt]
     );
 
-    /* SEND EMAIL (NON-BLOCKING SAFE) */
-    (async () => {
-      try {
-        await transporter.sendMail({
-          from: process.env.EMAIL_USER,
-          to: email,
-          subject: "Your OTP Code",
-          text: `Your OTP is ${otp}. It expires in 5 minutes.`,
-        });
+    /* SEND EMAIL USING RESEND */
+    try {
+      await resend.emails.send({
+        from: "onboarding@resend.dev",
+        to: email,
+        subject: "Your OTP Code",
+        html: `<h2>Your OTP is: ${otp}</h2><p>Valid for 5 minutes</p>`
+      });
 
-        console.log("📧 Email sent to:", email);
-      } catch (err) {
-        console.error("❌ EMAIL FAILED:", err.message);
-      }
-    })();
+      console.log("📧 OTP sent to:", email);
+    } catch (err) {
+      console.error("❌ RESEND ERROR:", err.message);
+    }
 
-    /* ALWAYS SUCCESS */
     return res.json({
       success: true,
-      message: "Signup successful. OTP generated."
+      message: "Signup successful. OTP sent."
     });
 
   } catch (err) {
-    console.error("🔥 SIGNUP ERROR FULL:", err);
+    console.error("🔥 SIGNUP ERROR:", err);
 
     return res.status(500).json({
       success: false,
-      message: err.message  // 👈 important for debugging
+      message: err.message
     });
   }
 });
