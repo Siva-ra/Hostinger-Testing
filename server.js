@@ -209,6 +209,135 @@ app.post("/login", async (req, res) => {
   }
 });
 
+
+/* ================= VIDEO SYSTEM ================= */
+
+let videos = [
+  { id: 1, title: "Video 1", url: "https://effetechnology.in/Andritz_videos/Welcome1.mp4", isActive: true },
+  { id: 2, title: "Video 2", url: "https://effetechnology.in/Andritz_videos/Welcome2.mp4", isActive: true },
+  { id: 3, title: "Video 3", url: "", isActive: false },
+  { id: 4, title: "Video 4", url: "", isActive: false },
+  { id: 5, title: "Video 5", url: "", isActive: false },
+  { id: 6, title: "Video 6", url: "", isActive: false },
+  { id: 7, title: "Video 7", url: "", isActive: false },
+  { id: 8, title: "Video 8", url: "", isActive: false },
+  { id: 9, title: "Video 9", url: "", isActive: false },
+  { id: 10, title: "Video 10", url: "", isActive: false }
+];
+
+function normalizeRole(role) {
+  return String(role || "").toLowerCase().trim();
+}
+
+function canViewAll(role) {
+  return role === "manager" || role === "hr";
+}
+
+function canViewOnlyFive(role) {
+  return (
+    role === "admin" ||
+    role === "intern" ||
+    role === "user"
+  );
+}
+
+function canManageVideos(role) {
+  return role === "manager" || role === "hr";
+}
+
+/* ===== GET VIDEOS ===== */
+app.get("/videos/:role", (req, res) => {
+
+  const role = normalizeRole(req.params.role);
+
+  if (canViewAll(role)) {
+    return res.json(videos);
+  }
+
+  if (canViewOnlyFive(role)) {
+    return res.json(
+      videos.filter(video => video.id <= 5)
+    );
+  }
+
+  return res.status(403).json({
+    message: "Access denied"
+  });
+});
+
+/* ===== ADD VIDEO ===== */
+app.post("/videos/add/:role", (req, res) => {
+
+  const role = normalizeRole(req.params.role);
+
+  const { url } = req.body;
+
+  if (!canManageVideos(role)) {
+    return res.status(403).json({
+      message: "Only Manager and HR can add videos"
+    });
+  }
+
+  if (!url || url.trim() === "") {
+    return res.status(400).json({
+      message: "Video URL required"
+    });
+  }
+
+  const emptySlot = videos.find(
+    video => video.isActive === false
+  );
+
+  if (!emptySlot) {
+    return res.status(400).json({
+      message: "All 10 video slots are full"
+    });
+  }
+
+  emptySlot.url = url.trim();
+  emptySlot.isActive = true;
+
+  return res.json({
+    success: true,
+    message: "Video added",
+    video: emptySlot
+  });
+});
+
+/* ===== REMOVE VIDEO ===== */
+app.delete("/videos/remove/:role/:id", (req, res) => {
+
+  const role = normalizeRole(req.params.role);
+
+  const id = Number(req.params.id);
+
+  if (!canManageVideos(role)) {
+    return res.status(403).json({
+      message: "Only Manager and HR can remove videos"
+    });
+  }
+
+  const video = videos.find(
+    video => video.id === id
+  );
+
+  if (!video) {
+    return res.status(404).json({
+      message: "Video not found"
+    });
+  }
+
+  video.url = "";
+  video.isActive = false;
+
+  return res.json({
+    success: true,
+    message: "Video removed",
+    video
+  });
+});
+
+
 /* ================= TEST ================= */
 app.get("/", (req, res) => {
   res.send("Server is working ✅");
