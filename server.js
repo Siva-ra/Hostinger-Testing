@@ -2,35 +2,44 @@ const express = require("express");
 const cors = require("cors");
 const bcrypt = require("bcryptjs");
 const nodemailer = require("nodemailer");
-const { Pool } = require("pg");
+const mysql = require("mysql2/promise");
 require("dotenv").config();
 
 const app = express();
 
+/* ===== MIDDLEWARE ===== */
 app.use(cors());
 app.use(express.json());
 
-/* ================= DATABASE ================= */
-const db = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: { rejectUnauthorized: false }
+/* ===== DATABASE ===== */
+const db = mysql.createPool({
+  host: process.env.DB_HOST,
+  user: process.env.DB_USER,
+  port: process.env.DB_PORT,
+  password: process.env.DB_PASSWORD,
+  database: process.env.DB_NAME
 });
 
-db.query("SELECT 1")
-  .then(() => console.log("✅ PostgreSQL Connected"))
-  .catch(err => console.error("❌ DB ERROR:", err.message));
+/* ===== TEST DB CONNECTION ===== */
+db.getConnection()
+  .then((connection) => {
+    console.log("✅ Database connected");
+    connection.release();
+  })
+  .catch((err) => {
+    console.error("❌ Database connection failed:", err.message);
+  });
 
-/* ================= MAIL ================= */
-/* ⚠️ Gmail may fail on Render */
+/* ===== MAIL CONFIG ===== */
 const transporter = nodemailer.createTransport({
-  service: "gmail", // cleaner than host config
+  service: "gmail",
   auth: {
     user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS,
+    pass: process.env.EMAIL_PASS
   }
 });
 
-/* ================= OTP ================= */
+/* ===== OTP FUNCTION ===== */
 function generateOTP() {
   return Math.floor(100000 + Math.random() * 900000).toString();
 }
@@ -41,44 +50,46 @@ app.post("/signup", async (req, res) => {
     let { email, username, password } = req.body;
 
     if (!email || !username || !password) {
-      return res.status(400).json({ success: false, message: "Missing fields" });
+      return res.status(400).json({
+        success: false,
+        message: "Missing fields"
+      });
     }
 
     email = email.toLowerCase().trim();
     username = username.toLowerCase().trim();
 
-    /* CHECK USER */
-    const existing = await db.query(
-      "SELECT id FROM users WHERE email=$1 OR username=$2",
+    const [existing] = await db.query(
+      "SELECT id FROM users WHERE email = ? OR username = ?",
       [email, username]
     );
 
-    if (existing.rows.length > 0) {
-      return res.json({ success: false, message: "User already exists" });
+    if (existing.length > 0) {
+      return res.json({
+        success: false,
+        message: "User already exists"
+      });
     }
 
-    /* HASH PASSWORD */
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    /* INSERT USER */
-    const result = await db.query(
-      `INSERT INTO users (email, username, password_hash, is_verified, role)
-       VALUES ($1,$2,$3,$4,$5) RETURNING id`,
-      [email, username, hashedPassword, false, "intern"]
+    const [result] = await db.query(
+      `INSERT INTO users 
+      (email, username, password_hash, is_verified, role) 
+      VALUES (?, ?, ?, ?, ?)`,
+      [email, username, hashedPassword, 0, "intern"]
     );
 
-    const userId = result.rows[0].id;
+    const userId = result.insertId;
 
-    /* GENERATE OTP */
     const otp = generateOTP();
     const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
 
     await db.query(
-      "INSERT INTO otps (user_id, otp, expires_at) VALUES ($1,$2,$3)",
+      "INSERT INTO otps (user_id, otp, expires_at) VALUES (?, ?, ?)",
       [userId, otp, expiresAt]
     );
 
-    /* SEND EMAIL (SAFE - non blocking) */
     let emailSent = true;
 
     try {
@@ -86,7 +97,7 @@ app.post("/signup", async (req, res) => {
         from: `"OTP Service" <${process.env.EMAIL_USER}>`,
         to: email,
         subject: "Your OTP Code",
-        text: `Your OTP is ${otp}. It expires in 5 minutes.`,
+        text: `Your OTP is ${otp}. It expires in 5 minutes.`
       });
 
       console.log("📧 Email sent to:", email);
@@ -99,11 +110,11 @@ app.post("/signup", async (req, res) => {
       success: true,
       message: emailSent
         ? "Signup successful! OTP sent."
-        : "Signup successful! OTP generated (email failed)"
+        : "Signup successful! OTP generated, but email failed."
     });
 
   } catch (err) {
-    console.error("🔥 SIGNUP ERROR:", err);
+    console.error("🔥 SIGNUP ERROR:", err.message);
 
     return res.status(500).json({
       success: false,
@@ -118,38 +129,57 @@ app.post("/verifyotp", async (req, res) => {
     let { email, otp } = req.body;
 
     if (!email || !otp) {
-      return res.status(400).json({ success: false, message: "Missing fields" });
+      return res.status(400).json({
+        success: false,
+        message: "Missing fields"
+      });
     }
 
     email = email.toLowerCase().trim();
 
-    const userRes = await db.query(
-      "SELECT id FROM users WHERE email=$1",
+    const [users] = await db.query(
+      "SELECT id FROM users WHERE email = ?",
       [email]
     );
 
-    if (userRes.rows.length === 0) {
-      return res.json({ success: false, message: "User not found" });
+    if (users.length === 0) {
+      return res.json({
+        success: false,
+        message: "User not found"
+      });
     }
 
-    const userId = userRes.rows[0].id;
+    const userId = users[0].id;
 
-    const otpRes = await db.query(
-      "SELECT * FROM otps WHERE user_id=$1 AND otp=$2 AND expires_at > NOW()",
+    const [otpRows] = await db.query(
+      "SELECT * FROM otps WHERE user_id = ? AND otp = ? AND expires_at > NOW()",
       [userId, otp]
     );
 
-    if (otpRes.rows.length === 0) {
-      return res.json({ success: false, message: "OTP invalid or expired" });
+    if (otpRows.length === 0) {
+      return res.json({
+        success: false,
+        message: "OTP invalid or expired"
+      });
     }
 
-    await db.query("UPDATE users SET is_verified=TRUE WHERE id=$1", [userId]);
-    await db.query("DELETE FROM otps WHERE user_id=$1", [userId]);
+    await db.query(
+      "UPDATE users SET is_verified = 1 WHERE id = ?",
+      [userId]
+    );
 
-    return res.json({ success: true, message: "Account verified!" });
+    //await db.query(
+    //  "DELETE FROM otps WHERE user_id = ?",
+    //  [userId]
+   // );
+
+    return res.json({
+      success: true,
+      message: "Account verified!"
+    });
 
   } catch (err) {
-    console.error("🔥 VERIFY ERROR:", err);
+    console.error("🔥 VERIFY ERROR:", err.message);
 
     return res.status(500).json({
       success: false,
@@ -164,30 +194,42 @@ app.post("/login", async (req, res) => {
     let { username, password } = req.body;
 
     if (!username || !password) {
-      return res.status(400).json({ success: false, message: "Missing fields" });
+      return res.status(400).json({
+        success: false,
+        message: "Missing fields"
+      });
     }
 
-    username = username.toLowerCase();
+    username = username.toLowerCase().trim();
 
-    const result = await db.query(
-      "SELECT * FROM users WHERE email=$1 OR username=$2",
+    const [rows] = await db.query(
+      "SELECT * FROM users WHERE email = ? OR username = ?",
       [username, username]
     );
 
-    if (result.rows.length === 0) {
-      return res.json({ success: false, message: "Invalid credentials" });
+    if (rows.length === 0) {
+      return res.json({
+        success: false,
+        message: "Invalid credentials"
+      });
     }
 
-    const user = result.rows[0];
+    const user = rows[0];
 
-    if (!user.is_verified) {
-      return res.json({ success: false, message: "User not verified yet" });
+    if (user.is_verified !== 1) {
+      return res.json({
+        success: false,
+        message: "User not verified yet"
+      });
     }
 
     const match = await bcrypt.compare(password, user.password_hash);
 
     if (!match) {
-      return res.json({ success: false, message: "Invalid credentials" });
+      return res.json({
+        success: false,
+        message: "Invalid credentials"
+      });
     }
 
     return res.json({
@@ -200,7 +242,7 @@ app.post("/login", async (req, res) => {
     });
 
   } catch (err) {
-    console.error("🔥 LOGIN ERROR:", err);
+    console.error("🔥 LOGIN ERROR:", err.message);
 
     return res.status(500).json({
       success: false,
@@ -209,9 +251,7 @@ app.post("/login", async (req, res) => {
   }
 });
 
-
 /* ================= VIDEO SYSTEM ================= */
-
 let videos = [
   { id: 1, title: "Video 1", url: "https://effetechnology.in/Andritz_videos/Welcome1.mp4", isActive: true },
   { id: 2, title: "Video 2", url: "https://effetechnology.in/Andritz_videos/Welcome2.mp4", isActive: true },
@@ -234,11 +274,7 @@ function canViewAll(role) {
 }
 
 function canViewOnlyFive(role) {
-  return (
-    role === "admin" ||
-    role === "intern" ||
-    role === "user"
-  );
+  return role === "admin" || role === "intern" || role === "user";
 }
 
 function canManageVideos(role) {
@@ -247,7 +283,6 @@ function canManageVideos(role) {
 
 /* ===== GET VIDEOS ===== */
 app.get("/videos/:role", (req, res) => {
-
   const role = normalizeRole(req.params.role);
 
   if (canViewAll(role)) {
@@ -255,9 +290,7 @@ app.get("/videos/:role", (req, res) => {
   }
 
   if (canViewOnlyFive(role)) {
-    return res.json(
-      videos.filter(video => video.id <= 5)
-    );
+    return res.json(videos.filter(video => video.id <= 5));
   }
 
   return res.status(403).json({
@@ -267,9 +300,7 @@ app.get("/videos/:role", (req, res) => {
 
 /* ===== ADD VIDEO ===== */
 app.post("/videos/add/:role", (req, res) => {
-
   const role = normalizeRole(req.params.role);
-
   const { url } = req.body;
 
   if (!canManageVideos(role)) {
@@ -284,9 +315,7 @@ app.post("/videos/add/:role", (req, res) => {
     });
   }
 
-  const emptySlot = videos.find(
-    video => video.isActive === false
-  );
+  const emptySlot = videos.find(video => video.isActive === false);
 
   if (!emptySlot) {
     return res.status(400).json({
@@ -306,9 +335,7 @@ app.post("/videos/add/:role", (req, res) => {
 
 /* ===== REMOVE VIDEO ===== */
 app.delete("/videos/remove/:role/:id", (req, res) => {
-
   const role = normalizeRole(req.params.role);
-
   const id = Number(req.params.id);
 
   if (!canManageVideos(role)) {
@@ -317,9 +344,7 @@ app.delete("/videos/remove/:role/:id", (req, res) => {
     });
   }
 
-  const video = videos.find(
-    video => video.id === id
-  );
+  const video = videos.find(video => video.id === id);
 
   if (!video) {
     return res.status(404).json({
@@ -337,15 +362,14 @@ app.delete("/videos/remove/:role/:id", (req, res) => {
   });
 });
 
-
-/* ================= TEST ================= */
+/* ===== TEST ROUTE ===== */
 app.get("/", (req, res) => {
   res.send("Server is working ✅");
 });
 
-/* ================= SERVER ================= */
-const PORT = process.env.PORT || 10000;
+/* ===== SERVER ===== */
+const PORT = process.env.PORT || 3000;
 
-app.listen(PORT, "0.0.0.0", () => {
+app.listen(PORT, () => {
   console.log(`🚀 Server running on port ${PORT}`);
 });
