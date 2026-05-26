@@ -53,6 +53,13 @@ const storage = multer.diskStorage({
   }
 });
 
+
+if (!fs.existsSync("uploads")) {
+  fs.mkdirSync("uploads");
+}
+
+
+
 const upload = multer({ storage: storage });
 /* ===== OTP FUNCTION ===== */
 function generateOTP() {
