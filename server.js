@@ -358,6 +358,31 @@ app.post("/delete-video", async (req, res) => {
   }
 });
 
+/* ===== GET VIDEOS ===== */
+
+app.get("/get-videos", async (req, res) => {
+try {
+
+const [rows] =
+await db.query(
+"SELECT * FROM videos"
+);
+
+res.json(rows);
+
+}
+catch (err) {
+
+console.log(err);
+
+res.status(500).json({
+success:false,
+message:err.message
+});
+
+}
+});
+
 /* ===== UPLOAD OR REPLACE 3D MODEL ===== */
 app.post("/upload-model", upload.single("model"), async (req, res) => {
   try {
