@@ -552,6 +552,42 @@ app.get("/get-progress/:userId", async (req, res) => {
   }
 });
 
+/* ===== UPDATE ROLE ===== */
+
+app.post("/update-role", async (req, res) => {
+
+  try {
+
+    const { user_id, role } = req.body;
+
+    await db.query(
+      `
+      UPDATE users
+      SET role = ?
+      WHERE id = ?
+      `,
+      [role, user_id]
+    );
+
+    res.json({
+      success: true,
+      message: "Role updated"
+    });
+
+  }
+  catch (err) {
+
+    console.log(err);
+
+    res.status(500).json({
+      success: false,
+      message: err.message
+    });
+
+  }
+
+});
+
 /* ===== TEST ROUTE ===== */
 app.get("/", (req, res) => {
   res.send("Server is working ✅");
