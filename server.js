@@ -43,6 +43,9 @@ const transporter = nodemailer.createTransport({
   }
 });
 
+/* ===== FIXED ADMIN EMAIL ===== */
+const ADMIN_EMAIL = "innovation@effetechnology.in";
+
 /* ===== 3D MODEL MULTER STORAGE ===== */
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
@@ -58,9 +61,21 @@ if (!fs.existsSync("uploads")) {
   fs.mkdirSync("uploads");
 }
 
+//updated code for multer to only accept .glb and .gltf files
+const upload = multer({
+  storage: storage,
+  fileFilter: function (req, file, cb) {
+    const ext = path.extname(file.originalname).toLowerCase();
+
+    if (ext === ".glb" || ext === ".gltf") {
+      cb(null, true);
+    } else {
+      cb(new Error("Only GLB or GLTF files are allowed"));
+    }
+  }
+});
 
 
-const upload = multer({ storage: storage });
 /* ===== OTP FUNCTION ===== */
 function generateOTP() {
   return Math.floor(100000 + Math.random() * 900000).toString();
@@ -93,14 +108,26 @@ app.post("/signup", async (req, res) => {
       });
     }
 
-    const hashedPassword = await bcrypt.hash(password, 10);
+    //updated code for hashing password using bcryptjs
+   const hashedPassword = await bcrypt.hash(password, 10);
 
-    const [result] = await db.query(
-      `INSERT INTO users 
-      (email, username, password_hash, is_verified, role) 
+   const role =
+    email === ADMIN_EMAIL
+     ? "admin"
+     : "intern";
+
+   const [result] = await db.query(
+     `INSERT INTO users 
+     (email, username, password_hash, is_verified, role) 
       VALUES (?, ?, ?, ?, ?)`,
-      [email, username, hashedPassword, 0, "intern"]
-    );
+    [
+     email,
+     username,
+     hashedPassword,
+     0,
+     role
+    ]
+   );
 
     const userId = result.insertId;
 
@@ -254,14 +281,19 @@ app.post("/login", async (req, res) => {
       });
     }
 
+    //updated code for login to return user details along with role
     return res.json({
-      success: true,
-      user: {
-        id: user.id,
-        username: user.username,
-        role: user.role
-      }
-    });
+  success: true,
+  user: {
+    id: user.id,
+    username: user.username,
+    email: user.email,
+    role:
+      user.email === ADMIN_EMAIL
+        ? "admin"
+        : user.role
+  }
+});
 
   } catch (err) {
     console.error("🔥 LOGIN ERROR:", err.message);
@@ -453,6 +485,46 @@ app.get("/get-models", async (req, res) => {
   }
 });
 
+//new code 
+app.delete("/delete-model/:slot", async (req, res) => {
+  try {
+    const slot = req.params.slot;
+
+    const [rows] = await db.query(
+      "SELECT * FROM models WHERE slot_number = ?",
+      [slot]
+    );
+
+    if (rows.length === 0) {
+      return res.json({
+        success: false,
+        message: "Model not found"
+      });
+    }
+
+    const oldPath = rows[0].model_path;
+
+    if (fs.existsSync(oldPath)) {
+      fs.unlinkSync(oldPath);
+    }
+
+    await db.query(
+      "DELETE FROM models WHERE slot_number = ?",
+      [slot]
+    );
+
+    res.json({
+      success: true,
+      message: "Model deleted"
+    });
+
+  } catch (err) {
+    res.status(500).json({
+      success: false,
+      message: err.message
+    });
+  }
+});
 
 /* ================= PLAYER PROGRESS ================= */
 
@@ -550,6 +622,42 @@ app.get("/get-progress/:userId", async (req, res) => {
       message: err.message
     });
   }
+});
+
+/* ===== GET USERS ===== */
+
+app.get("/get-users", async (req, res) => {
+
+  try {
+
+    const [users] = await db.query(
+      `
+      SELECT
+      id,
+      email,
+      username,
+      role
+      FROM users
+      `
+    );
+
+    res.json({
+      success: true,
+      users: users
+    });
+
+  }
+  catch (err) {
+
+    console.log(err);
+
+    res.status(500).json({
+      success: false,
+      message: err.message
+    });
+
+  }
+
 });
 
 /* ===== UPDATE ROLE ===== */
