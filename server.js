@@ -56,12 +56,7 @@ const storage = multer.diskStorage({
   }
 });
 
-//new code
-const fullOldPath = path.join(__dirname, oldPath);
 
-if (fs.existsSync(fullOldPath)) {
-  fs.unlinkSync(fullOldPath);
-}
 
 //updated code for multer to only accept .glb and .gltf files
 const upload = multer({
