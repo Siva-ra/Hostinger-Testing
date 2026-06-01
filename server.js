@@ -56,9 +56,11 @@ const storage = multer.diskStorage({
   }
 });
 
+//new code
+const fullOldPath = path.join(__dirname, oldPath);
 
-if (!fs.existsSync("uploads")) {
-  fs.mkdirSync("uploads");
+if (fs.existsSync(fullOldPath)) {
+  fs.unlinkSync(fullOldPath);
 }
 
 //updated code for multer to only accept .glb and .gltf files
@@ -437,9 +439,10 @@ app.post("/upload-model", upload.single("model"), async (req, res) => {
 
     if (rows.length > 0) {
       const oldPath = rows[0].model_path;
+      const fullOldPath = path.join(__dirname, oldPath);
 
-      if (fs.existsSync(oldPath)) {
-        fs.unlinkSync(oldPath);
+      if (fs.existsSync(fullOldPath)) {
+        fs.unlinkSync(fullOldPath);
       }
 
       await db.query(
@@ -476,6 +479,7 @@ app.get("/get-models", async (req, res) => {
     );
 
     res.json(rows);
+
   } catch (err) {
     console.error("GET MODELS ERROR:", err.message);
     res.status(500).json({
@@ -485,7 +489,7 @@ app.get("/get-models", async (req, res) => {
   }
 });
 
-//new code 
+/* ===== DELETE 3D MODEL BY SLOT ===== */
 app.delete("/delete-model/:slot", async (req, res) => {
   try {
     const slot = req.params.slot;
@@ -503,9 +507,10 @@ app.delete("/delete-model/:slot", async (req, res) => {
     }
 
     const oldPath = rows[0].model_path;
+    const fullOldPath = path.join(__dirname, oldPath);
 
-    if (fs.existsSync(oldPath)) {
-      fs.unlinkSync(oldPath);
+    if (fs.existsSync(fullOldPath)) {
+      fs.unlinkSync(fullOldPath);
     }
 
     await db.query(
@@ -519,13 +524,13 @@ app.delete("/delete-model/:slot", async (req, res) => {
     });
 
   } catch (err) {
+    console.error("DELETE MODEL ERROR:", err.message);
     res.status(500).json({
       success: false,
       message: err.message
     });
   }
 });
-
 /* ================= PLAYER PROGRESS ================= */
 
 /* ===== SAVE PLAYER PROGRESS ===== */
