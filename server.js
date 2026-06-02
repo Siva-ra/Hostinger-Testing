@@ -418,7 +418,7 @@ app.post("/upload-model", upload.single("model"), async (req, res) => {
     const slot_number = req.body.slot_number;
 
     if (!req.file) {
-      return res.json({
+      return res.status(400).json({
         success: false,
         message: "No file uploaded"
       });
@@ -454,11 +454,13 @@ app.post("/upload-model", upload.single("model"), async (req, res) => {
     res.json({
       success: true,
       message: "Model uploaded successfully",
-      path: modelPath
+      slot_number: slot_number,
+      model_name: modelName,
+      model_path: modelPath
     });
 
   } catch (err) {
-    console.error("UPLOAD MODEL ERROR:", err.message);
+    console.error("UPLOAD MODEL ERROR:", err);
     res.status(500).json({
       success: false,
       message: err.message
@@ -476,7 +478,7 @@ app.get("/get-models", async (req, res) => {
     res.json(rows);
 
   } catch (err) {
-    console.error("GET MODELS ERROR:", err.message);
+    console.error("GET MODELS ERROR:", err);
     res.status(500).json({
       success: false,
       message: err.message
@@ -484,7 +486,7 @@ app.get("/get-models", async (req, res) => {
   }
 });
 
-/* ===== DELETE 3D MODEL BY SLOT ===== */
+/* ===== DELETE 3D MODEL ===== */
 app.delete("/delete-model/:slot", async (req, res) => {
   try {
     const slot = req.params.slot;
@@ -519,13 +521,15 @@ app.delete("/delete-model/:slot", async (req, res) => {
     });
 
   } catch (err) {
-    console.error("DELETE MODEL ERROR:", err.message);
+    console.error("DELETE MODEL ERROR:", err);
     res.status(500).json({
       success: false,
       message: err.message
     });
   }
 });
+
+
 /* ================= PLAYER PROGRESS ================= */
 
 /* ===== SAVE PLAYER PROGRESS ===== */
