@@ -73,6 +73,37 @@ const upload = multer({
 });
 
 
+/* ===== DOCUMENT MULTER STORAGE ===== */
+const documentStorage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    const documentFolder = "uploads/documents";
+
+    if (!fs.existsSync(documentFolder)) {
+      fs.mkdirSync(documentFolder, { recursive: true });
+    }
+
+    cb(null, documentFolder);
+  },
+
+  filename: function (req, file, cb) {
+    cb(null, Date.now() + path.extname(file.originalname));
+  }
+});
+
+const documentUpload = multer({
+  storage: documentStorage,
+  fileFilter: function (req, file, cb) {
+    const ext = path.extname(file.originalname).toLowerCase();
+
+    if (ext === ".pdf" || ext === ".ppt" || ext === ".pptx") {
+      cb(null, true);
+    } else {
+      cb(new Error("Only PDF, PPT, PPTX files are allowed"));
+    }
+  }
+});
+
+
 /* ===== OTP FUNCTION ===== */
 function generateOTP() {
   return Math.floor(100000 + Math.random() * 900000).toString();
@@ -699,6 +730,136 @@ app.post("/update-role", async (req, res) => {
   }
 
 });
+
+
+
+/* ===== UPLOAD OR REPLACE DOCUMENT ===== */
+app.post("/upload-document", documentUpload.single("document"), async (req, res) => {
+  try {
+    const slot_number = req.body.slot_number;
+
+    if (!slot_number) {
+      return res.status(400).json({
+        success: false,
+        message: "Slot number missing"
+      });
+    }
+
+    if (!req.file) {
+      return res.status(400).json({
+        success: false,
+        message: "No document uploaded"
+      });
+    }
+
+    const fileName = req.file.originalname;
+    const filePath = "uploads/documents/" + req.file.filename;
+    const fileType = path.extname(req.file.originalname).toLowerCase();
+
+    const [rows] = await db.query(
+      "SELECT * FROM documents WHERE slot_number = ?",
+      [slot_number]
+    );
+
+    if (rows.length > 0) {
+      const oldPath = rows[0].file_path;
+      const fullOldPath = path.join(__dirname, oldPath);
+
+      if (fs.existsSync(fullOldPath)) {
+        fs.unlinkSync(fullOldPath);
+      }
+
+      await db.query(
+        "UPDATE documents SET file_name = ?, file_path = ?, file_type = ? WHERE slot_number = ?",
+        [fileName, filePath, fileType, slot_number]
+      );
+    } else {
+      await db.query(
+        "INSERT INTO documents (slot_number, file_name, file_path, file_type) VALUES (?, ?, ?, ?)",
+        [slot_number, fileName, filePath, fileType]
+      );
+    }
+
+    res.json({
+      success: true,
+      message: "Document uploaded successfully",
+      slot_number: slot_number,
+      file_name: fileName,
+      file_path: filePath,
+      file_type: fileType
+    });
+
+  } catch (err) {
+    console.error("UPLOAD DOCUMENT ERROR:", err);
+    res.status(500).json({
+      success: false,
+      message: err.message
+    });
+  }
+});
+
+/* ===== GET ALL DOCUMENTS ===== */
+app.get("/get-documents", async (req, res) => {
+  try {
+    const [rows] = await db.query(
+      "SELECT * FROM documents ORDER BY slot_number"
+    );
+
+    res.json(rows);
+
+  } catch (err) {
+    console.error("GET DOCUMENTS ERROR:", err);
+    res.status(500).json({
+      success: false,
+      message: err.message
+    });
+  }
+});
+
+/* ===== DELETE DOCUMENT ===== */
+app.delete("/delete-document/:slot", async (req, res) => {
+  try {
+    const slot = req.params.slot;
+
+    const [rows] = await db.query(
+      "SELECT * FROM documents WHERE slot_number = ?",
+      [slot]
+    );
+
+    if (rows.length === 0) {
+      return res.json({
+        success: false,
+        message: "Document not found"
+      });
+    }
+
+    const oldPath = rows[0].file_path;
+    const fullOldPath = path.join(__dirname, oldPath);
+
+    if (fs.existsSync(fullOldPath)) {
+      fs.unlinkSync(fullOldPath);
+    }
+
+    await db.query(
+      "DELETE FROM documents WHERE slot_number = ?",
+      [slot]
+    );
+
+    res.json({
+      success: true,
+      message: "Document deleted"
+    });
+
+  } catch (err) {
+    console.error("DELETE DOCUMENT ERROR:", err);
+    res.status(500).json({
+      success: false,
+      message: err.message
+    });
+  }
+});
+
+
 
 /* ===== TEST ROUTE ===== */
 app.get("/", (req, res) => {
