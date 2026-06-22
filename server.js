@@ -7,6 +7,8 @@ const multer = require("multer");
 const path = require("path");
 const fs = require("fs");
 require("dotenv").config();
+const { exec } = require("child_process");
+const pdfPoppler = require("pdf-poppler");
 
 const app = express();
 
@@ -733,6 +735,68 @@ app.post("/update-role", async (req, res) => {
 
 
 
+/* ===== CONVERT DOCUMENT TO IMAGE ===== */
+async function convertDocumentToImage(filePath, fileType, slotNumber) {
+  const previewFolder = "uploads/document_previews";
+
+  if (!fs.existsSync(previewFolder)) {
+    fs.mkdirSync(previewFolder, { recursive: true });
+  }
+
+  const previewName = "slot_" + slotNumber + "_" + Date.now();
+
+  if (fileType === ".pdf") {
+    const options = {
+      format: "png",
+      out_dir: previewFolder,
+      out_prefix: previewName,
+      page: 1
+    };
+
+    await pdfPoppler.convert(filePath, options);
+
+    return previewFolder + "/" + previewName + "-1.png";
+  }
+
+  if (fileType === ".ppt" || fileType === ".pptx") {
+    const tempPdfFolder = "uploads/temp_pdf";
+
+    if (!fs.existsSync(tempPdfFolder)) {
+      fs.mkdirSync(tempPdfFolder, { recursive: true });
+    }
+
+    await new Promise((resolve, reject) => {
+      const command =
+        `libreoffice --headless --convert-to pdf --outdir "${tempPdfFolder}" "${filePath}"`;
+
+      exec(command, (error) => {
+        if (error) reject(error);
+        else resolve();
+      });
+    });
+
+    const baseName = path.basename(filePath, path.extname(filePath));
+    const convertedPdfPath = path.join(tempPdfFolder, baseName + ".pdf");
+
+    const options = {
+      format: "png",
+      out_dir: previewFolder,
+      out_prefix: previewName,
+      page: 1
+    };
+
+    await pdfPoppler.convert(convertedPdfPath, options);
+
+    if (fs.existsSync(convertedPdfPath)) {
+      fs.unlinkSync(convertedPdfPath);
+    }
+
+    return previewFolder + "/" + previewName + "-1.png";
+  }
+
+  return null;
+}
+
 /* ===== UPLOAD OR REPLACE DOCUMENT ===== */
 app.post("/upload-document", documentUpload.single("document"), async (req, res) => {
   try {
@@ -754,7 +818,14 @@ app.post("/upload-document", documentUpload.single("document"), async (req, res)
 
     const fileName = req.file.originalname;
     const filePath = "uploads/documents/" + req.file.filename;
+    const fullFilePath = path.join(__dirname, filePath);
     const fileType = path.extname(req.file.originalname).toLowerCase();
+
+    const previewPath = await convertDocumentToImage(
+      fullFilePath,
+      fileType,
+      slot_number
+    );
 
     const [rows] = await db.query(
       "SELECT * FROM documents WHERE slot_number = ?",
@@ -763,20 +834,26 @@ app.post("/upload-document", documentUpload.single("document"), async (req, res)
 
     if (rows.length > 0) {
       const oldPath = rows[0].file_path;
-      const fullOldPath = path.join(__dirname, oldPath);
+      const oldPreview = rows[0].preview_path;
 
-      if (fs.existsSync(fullOldPath)) {
-        fs.unlinkSync(fullOldPath);
+      if (oldPath) {
+        const fullOldPath = path.join(__dirname, oldPath);
+        if (fs.existsSync(fullOldPath)) fs.unlinkSync(fullOldPath);
+      }
+
+      if (oldPreview) {
+        const fullOldPreview = path.join(__dirname, oldPreview);
+        if (fs.existsSync(fullOldPreview)) fs.unlinkSync(fullOldPreview);
       }
 
       await db.query(
-        "UPDATE documents SET file_name = ?, file_path = ?, file_type = ? WHERE slot_number = ?",
-        [fileName, filePath, fileType, slot_number]
+        "UPDATE documents SET file_name = ?, file_path = ?, file_type = ?, preview_path = ? WHERE slot_number = ?",
+        [fileName, filePath, fileType, previewPath, slot_number]
       );
     } else {
       await db.query(
-        "INSERT INTO documents (slot_number, file_name, file_path, file_type) VALUES (?, ?, ?, ?)",
-        [slot_number, fileName, filePath, fileType]
+        "INSERT INTO documents (slot_number, file_name, file_path, file_type, preview_path) VALUES (?, ?, ?, ?, ?)",
+        [slot_number, fileName, filePath, fileType, previewPath]
       );
     }
 
@@ -786,7 +863,10 @@ app.post("/upload-document", documentUpload.single("document"), async (req, res)
       slot_number: slot_number,
       file_name: fileName,
       file_path: filePath,
-      file_type: fileType
+      file_type: fileType,
+      preview_path: previewPath,
+      preview_url:
+        "https://lightgreen-cheetah-775075.hostingersite.com/" + previewPath
     });
 
   } catch (err) {
@@ -816,6 +896,46 @@ app.get("/get-documents", async (req, res) => {
   }
 });
 
+/* ===== VIEW DOCUMENT BY SLOT ===== */
+app.get("/view-document/:slot", async (req, res) => {
+  try {
+    const slot = req.params.slot;
+
+    const [rows] = await db.query(
+      "SELECT * FROM documents WHERE slot_number = ?",
+      [slot]
+    );
+
+    if (rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "Document not found"
+      });
+    }
+
+    res.json({
+      success: true,
+      file_name: rows[0].file_name,
+      file_path: rows[0].file_path,
+      file_type: rows[0].file_type,
+      preview_path: rows[0].preview_path,
+      url:
+        "https://lightgreen-cheetah-775075.hostingersite.com/" +
+        rows[0].file_path,
+      preview_url:
+        "https://lightgreen-cheetah-775075.hostingersite.com/" +
+        rows[0].preview_path
+    });
+
+  } catch (err) {
+    console.error("VIEW DOCUMENT ERROR:", err);
+    res.status(500).json({
+      success: false,
+      message: err.message
+    });
+  }
+});
+
 /* ===== DELETE DOCUMENT ===== */
 app.delete("/delete-document/:slot", async (req, res) => {
   try {
@@ -834,10 +954,16 @@ app.delete("/delete-document/:slot", async (req, res) => {
     }
 
     const oldPath = rows[0].file_path;
-    const fullOldPath = path.join(__dirname, oldPath);
+    const oldPreview = rows[0].preview_path;
 
-    if (fs.existsSync(fullOldPath)) {
-      fs.unlinkSync(fullOldPath);
+    if (oldPath) {
+      const fullOldPath = path.join(__dirname, oldPath);
+      if (fs.existsSync(fullOldPath)) fs.unlinkSync(fullOldPath);
+    }
+
+    if (oldPreview) {
+      const fullOldPreview = path.join(__dirname, oldPreview);
+      if (fs.existsSync(fullOldPreview)) fs.unlinkSync(fullOldPreview);
     }
 
     await db.query(
