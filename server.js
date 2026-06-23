@@ -267,143 +267,6 @@ app.post("/verifyotp", async (req, res) => {
 });
 
 
-/* ================= FORGOT PASSWORD - SEND OTP ================= */
-app.post("/send-otp", async (req, res) => {
-  try {
-    let { email } = req.body;
-
-    if (!email) {
-      return res.json({
-        success: false,
-        message: "Email required"
-      });
-    }
-
-    email = email.toLowerCase().trim();
-
-    const [userRows] = await db.query(
-      "SELECT id FROM users WHERE email = ? AND is_verified = 1",
-      [email]
-    );
-
-    if (userRows.length === 0) {
-      return res.json({
-        success: false,
-        message: "Verified email not found"
-      });
-    }
-
-    const userId = userRows[0].id;
-
-    const otp = generateOTP();
-    const expiresAt = new Date(Date.now() + 1 * 60 * 1000);
-
-    await db.query(
-      "DELETE FROM otps WHERE user_id = ?",
-      [userId]
-    );
-
-    await db.query(
-      "INSERT INTO otps (user_id, otp, expires_at) VALUES (?, ?, ?)",
-      [userId, otp, expiresAt]
-    );
-
-    await transporter.sendMail({
-      from: `"OTP Service" <${process.env.EMAIL_USER}>`,
-      to: email,
-      subject: "Reset Password OTP",
-      text: `Your password reset OTP is ${otp}. It expires in 1 minutes.`
-    });
-
-    res.json({
-      success: true,
-      message: "OTP sent successfully"
-    });
-
-  } catch (err) {
-    console.error("SEND OTP ERROR:", err.message);
-
-    res.status(500).json({
-      success: false,
-      message: err.message
-    });
-  }
-});
-
-/* ================= FORGOT PASSWORD - RESET PASSWORD ================= */
-app.post("/reset-password", async (req, res) => {
-  try {
-    let { email, otp, newPassword } = req.body;
-
-    if (!email || !otp || !newPassword) {
-      return res.json({
-        success: false,
-        message: "Missing fields"
-      });
-    }
-
-    email = email.toLowerCase().trim();
-
-    if (newPassword.length < 6) {
-      return res.json({
-        success: false,
-        message: "Password must be at least 6 characters"
-      });
-    }
-
-    const [userRows] = await db.query(
-      "SELECT id FROM users WHERE email = ? AND is_verified = 1",
-      [email]
-    );
-
-    if (userRows.length === 0) {
-      return res.json({
-        success: false,
-        message: "User not found"
-      });
-    }
-
-    const userId = userRows[0].id;
-
-    const [otpRows] = await db.query(
-      "SELECT * FROM otps WHERE user_id = ? AND otp = ? AND expires_at > NOW()",
-      [userId, otp]
-    );
-
-    if (otpRows.length === 0) {
-      return res.json({
-        success: false,
-        message: "Invalid or expired OTP"
-      });
-    }
-
-    const hashedPassword = await bcrypt.hash(newPassword, 10);
-
-    await db.query(
-      "UPDATE users SET password_hash = ? WHERE id = ?",
-      [hashedPassword, userId]
-    );
-
-    await db.query(
-      "DELETE FROM otps WHERE user_id = ?",
-      [userId]
-    );
-
-    res.json({
-      success: true,
-      message: "Password reset successful"
-    });
-
-  } catch (err) {
-    console.error("RESET PASSWORD ERROR:", err.message);
-
-    res.status(500).json({
-      success: false,
-      message: err.message
-    });
-  }
-});
-
 
 /* ================= LOGIN ================= */
 app.post("/login", async (req, res) => {
@@ -1124,13 +987,18 @@ app.delete("/delete-document/:slot", async (req, res) => {
 });
 
 
+/* =====================================================
+   FORGOT PASSWORD ROUTES
+===================================================== */
+const forgotPasswordRoutes = require("./routes/forgotPassword");
+app.use("/", forgotPasswordRoutes(db, transporter));
 
 /* ===== TEST ROUTE ===== */
 app.get("/", (req, res) => {
   res.send("Server is working ✅");
 });
 
-
+/* ===== REMOVE UNVERIFIED USERS IN DB ===== */
 setInterval(async () => {
   await db.query(`
     DELETE u
