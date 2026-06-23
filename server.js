@@ -7,7 +7,9 @@ const multer = require("multer");
 const path = require("path");
 const fs = require("fs");
 require("dotenv").config();
+const pdfPoppler = require("pdf-poppler");
 
+console.log("✅ pdf-poppler loaded successfully");
 
 const app = express();
 
