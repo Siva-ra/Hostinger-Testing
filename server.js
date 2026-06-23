@@ -991,6 +991,24 @@ app.get("/", (req, res) => {
   res.send("Server is working ✅");
 });
 
+
+setInterval(async () => {
+  await db.query(`
+    DELETE u
+    FROM users u
+    JOIN otps o
+    ON u.id = o.user_id
+    WHERE u.is_verified = 0
+    AND o.expires_at < NOW()
+  `);
+
+  await db.query(`
+    DELETE FROM otps
+    WHERE expires_at < NOW()
+  `);
+}, 60000);
+
+
 /* ===== SERVER ===== */
 const PORT = process.env.PORT || 3000;
 
