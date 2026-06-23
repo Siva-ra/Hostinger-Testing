@@ -17,7 +17,7 @@ module.exports = (db, transporter) => {
 
       email = email.toLowerCase().trim();
 
-      const [userRows] = await db.promise().query(
+      const [userRows] = await db.query(
         "SELECT id FROM users WHERE email=?",
         [email]
       );
@@ -32,13 +32,13 @@ module.exports = (db, transporter) => {
       const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
 
       // delete old OTPs
-      await db.promise().query(
+      await db.query(
         "DELETE FROM otps WHERE user_id=?",
         [userId]
       );
 
       // insert new OTP
-      await db.promise().query(
+      await db.query(
         "INSERT INTO otps (user_id, otp, expires_at) VALUES (?,?,?)",
         [userId, otp, expiresAt]
       );
@@ -72,7 +72,7 @@ module.exports = (db, transporter) => {
 
       email = email.toLowerCase().trim();
 
-      const [userRows] = await db.promise().query(
+      const [userRows] = await db.query(
         "SELECT id FROM users WHERE email=?",
         [email]
       );
@@ -83,7 +83,7 @@ module.exports = (db, transporter) => {
 
       const userId = userRows[0].id;
 
-      const [otpRows] = await db.promise().query(
+      const [otpRows] = await db.query(
         "SELECT * FROM otps WHERE user_id=? AND otp=? AND expires_at > NOW()",
         [userId, otp]
       );
@@ -94,12 +94,12 @@ module.exports = (db, transporter) => {
 
       const hashed = await bcrypt.hash(newPassword, 10);
 
-      await db.promise().query(
+      await db.query(
         "UPDATE users SET password_hash=? WHERE id=?",
         [hashed, userId]
       );
 
-      await db.promise().query(
+      await db.query(
         "DELETE FROM otps WHERE user_id=?",
         [userId]
       );
