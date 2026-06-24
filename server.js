@@ -987,6 +987,120 @@ app.delete("/delete-document/:slot", async (req, res) => {
 });
 
 
+/* ===== COMMON RESEND OTP FUNCTION ===== */
+async function resendOTP(email, purpose) {
+  email = email.toLowerCase().trim();
+
+  const [users] = await db.query(
+    "SELECT id, email, is_verified FROM users WHERE email = ?",
+    [email]
+  );
+
+  if (users.length === 0) {
+    return {
+      success: false,
+      message: "Email not found"
+    };
+  }
+
+  const user = users[0];
+
+  if (purpose === "signup" && user.is_verified === 1) {
+    return {
+      success: false,
+      message: "Account already verified. Please login."
+    };
+  }
+
+  const otp = generateOTP();
+  const expiresAt = new Date(Date.now() + 1 * 60 * 1000);
+
+  await db.query(
+    "DELETE FROM otps WHERE user_id = ?",
+    [user.id]
+  );
+
+  await db.query(
+    "INSERT INTO otps (user_id, otp, expires_at) VALUES (?, ?, ?)",
+    [user.id, otp, expiresAt]
+  );
+
+  const subject =
+    purpose === "forgot"
+      ? "Password Reset OTP"
+      : "Your Signup OTP";
+
+  const text =
+    purpose === "forgot"
+      ? `Your password reset OTP is ${otp}. It expires in 1 minute.`
+      : `Your signup OTP is ${otp}. It expires in 1 minute.`;
+
+  await transporter.sendMail({
+    from: `"OTP Service" <${process.env.EMAIL_USER}>`,
+    to: email,
+    subject: subject,
+    text: text
+  });
+
+  return {
+    success: true,
+    message: "OTP resent successfully"
+  };
+}
+
+
+/* ===== RESEND SIGNUP OTP ===== */
+app.post("/resend-signup-otp", async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    if (!email) {
+      return res.status(400).json({
+        success: false,
+        message: "Email missing"
+      });
+    }
+
+    const result = await resendOTP(email, "signup");
+    return res.json(result);
+
+  } catch (err) {
+    console.error("RESEND SIGNUP OTP ERROR:", err.message);
+
+    return res.status(500).json({
+      success: false,
+      message: err.message
+    });
+  }
+});
+
+
+/* ===== RESEND FORGOT PASSWORD OTP ===== */
+app.post("/resend-forgot-otp", async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    if (!email) {
+      return res.status(400).json({
+        success: false,
+        message: "Email missing"
+      });
+    }
+
+    const result = await resendOTP(email, "forgot");
+    return res.json(result);
+
+  } catch (err) {
+    console.error("RESEND FORGOT OTP ERROR:", err.message);
+
+    return res.status(500).json({
+      success: false,
+      message: err.message
+    });
+  }
+});
+
+
 /* =====================================================
    FORGOT PASSWORD ROUTES
 ===================================================== */
