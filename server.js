@@ -132,21 +132,43 @@ app.post("/signup", async (req, res) => {
     console.log("Email:", email);
     console.log("Username:", username);
 
-    console.log("Checking existing user...");
-    const [existing] = await db.query(
-      "SELECT id FROM users WHERE email = ? OR username = ?",
-      [email, username]
-    );
+    console.log("Checking existing email...");
 
-    console.log("Existing users found:", existing.length);
+const [emailRows] = await db.query(
+  "SELECT id FROM users WHERE email = ?",
+  [email]
+);
 
-    if (existing.length > 0) {
-      console.log("❌ User already exists");
-      return res.json({
+console.log("Email Exists:", emailRows.length > 0);
+
+if (emailRows.length > 0)
+{
+    console.log("❌ Email already exists:", email);
+
+    return res.json({
         success: false,
-        message: "User already exists"
-      });
-    }
+        message: "Email already exists"
+    });
+}
+
+console.log("Checking existing username...");
+
+const [usernameRows] = await db.query(
+  "SELECT id FROM users WHERE username = ?",
+  [username]
+);
+
+console.log("Username Exists:", usernameRows.length > 0);
+
+if (usernameRows.length > 0)
+{
+    console.log("❌ Username already exists:", username);
+
+    return res.json({
+        success: false,
+        message: "Username already exists"
+    });
+}
 
     console.log("Hashing password...");
     const hashedPassword = await bcrypt.hash(password, 10);
