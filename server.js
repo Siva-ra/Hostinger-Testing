@@ -112,10 +112,14 @@ function generateOTP() {
 
 /* ================= SIGNUP ================= */
 app.post("/signup", async (req, res) => {
+  console.log("========== SIGNUP START ==========");
+  console.log("Request Body:", req.body);
+
   try {
     let { email, username, password } = req.body;
 
     if (!email || !username || !password) {
+      console.log("❌ Missing fields");
       return res.status(400).json({
         success: false,
         message: "Missing fields"
@@ -125,57 +129,65 @@ app.post("/signup", async (req, res) => {
     email = email.toLowerCase().trim();
     username = username.toLowerCase().trim();
 
+    console.log("Email:", email);
+    console.log("Username:", username);
+
+    console.log("Checking existing user...");
     const [existing] = await db.query(
       "SELECT id FROM users WHERE email = ? OR username = ?",
       [email, username]
     );
 
+    console.log("Existing users found:", existing.length);
+
     if (existing.length > 0) {
+      console.log("❌ User already exists");
       return res.json({
         success: false,
         message: "User already exists"
       });
     }
 
-    //updated code for hashing password using bcryptjs
-   const hashedPassword = await bcrypt.hash(password, 10);
+    console.log("Hashing password...");
+    const hashedPassword = await bcrypt.hash(password, 10);
+    console.log("✅ Password hashed");
 
-   const role =
-    email === ADMIN_EMAIL
-     ? "admin"
-     : "intern";
+    const role = email === ADMIN_EMAIL ? "admin" : "intern";
+    console.log("Assigned Role:", role);
 
-   const [result] = await db.query(
-     `INSERT INTO users 
-     (email, username, password_hash, is_verified, role) 
+    console.log("Creating user...");
+    const [result] = await db.query(
+      `INSERT INTO users 
+      (email, username, password_hash, is_verified, role) 
       VALUES (?, ?, ?, ?, ?)`,
-    [
-     email,
-     username,
-     hashedPassword,
-     0,
-     role
-    ]
-   );
+      [email, username, hashedPassword, 0, role]
+    );
 
     const userId = result.insertId;
+    console.log("✅ User created. ID:", userId);
 
     const otp = generateOTP();
     const expiresAt = new Date(Date.now() + 1 * 60 * 1000);
+
+    console.log("Generated OTP:", otp);
+    console.log("OTP Expires At:", expiresAt);
 
     await db.query(
       "INSERT INTO otps (user_id, otp, expires_at) VALUES (?, ?, ?)",
       [userId, otp, expiresAt]
     );
 
+    console.log("✅ OTP stored in database");
+
     let emailSent = true;
 
     try {
+      console.log("Sending OTP email...");
       await transporter.sendMail({
         from: `"OTP Service" <${process.env.EMAIL_USER}>`,
         to: email,
         subject: "Your OTP Code",
-        text: `Your OTP is ${otp}. It expires in 1 minutes.`
+        text: `Your OTP is ${otp}. It expires in 1 minute.`
       });
 
       console.log("📧 Email sent to:", email);
@@ -183,6 +195,8 @@ app.post("/signup", async (req, res) => {
       console.error("❌ EMAIL FAILED:", err.message);
       emailSent = false;
     }
+
+    console.log("========== SIGNUP END ==========");
 
     return res.json({
       success: true,
@@ -193,6 +207,7 @@ app.post("/signup", async (req, res) => {
 
   } catch (err) {
     console.error("🔥 SIGNUP ERROR:", err.message);
+    console.error(err.stack);
 
     return res.status(500).json({
       success: false,
@@ -201,12 +216,17 @@ app.post("/signup", async (req, res) => {
   }
 });
 
+
 /* ================= VERIFY OTP ================= */
 app.post("/verifyotp", async (req, res) => {
+  console.log("========== VERIFY OTP START ==========");
+  console.log("Request Body:", req.body);
+
   try {
     let { email, otp } = req.body;
 
     if (!email || !otp) {
+      console.log("❌ Missing fields");
       return res.status(400).json({
         success: false,
         message: "Missing fields"
@@ -215,12 +235,19 @@ app.post("/verifyotp", async (req, res) => {
 
     email = email.toLowerCase().trim();
 
+    console.log("Email:", email);
+    console.log("Entered OTP:", otp);
+
+    console.log("Searching user...");
     const [users] = await db.query(
       "SELECT id FROM users WHERE email = ?",
       [email]
     );
 
+    console.log("Users found:", users.length);
+
     if (users.length === 0) {
+      console.log("❌ User not found");
       return res.json({
         success: false,
         message: "User not found"
@@ -228,28 +255,32 @@ app.post("/verifyotp", async (req, res) => {
     }
 
     const userId = users[0].id;
+    console.log("User ID:", userId);
 
+    console.log("Checking OTP in database...");
     const [otpRows] = await db.query(
       "SELECT * FROM otps WHERE user_id = ? AND otp = ? AND expires_at > NOW()",
       [userId, otp]
     );
 
+    console.log("Matching OTP rows:", otpRows.length);
+
     if (otpRows.length === 0) {
+      console.log("❌ OTP invalid or expired");
       return res.json({
         success: false,
         message: "OTP invalid or expired"
       });
     }
 
+    console.log("Updating user verification...");
     await db.query(
       "UPDATE users SET is_verified = 1 WHERE id = ?",
       [userId]
     );
 
-    //await db.query(
-    //  "DELETE FROM otps WHERE user_id = ?",
-    //  [userId]
-   // );
+    console.log("✅ Account verified");
+    console.log("========== VERIFY OTP END ==========");
 
     return res.json({
       success: true,
@@ -258,6 +289,7 @@ app.post("/verifyotp", async (req, res) => {
 
   } catch (err) {
     console.error("🔥 VERIFY ERROR:", err.message);
+    console.error(err.stack);
 
     return res.status(500).json({
       success: false,
@@ -267,13 +299,16 @@ app.post("/verifyotp", async (req, res) => {
 });
 
 
-
 /* ================= LOGIN ================= */
 app.post("/login", async (req, res) => {
+  console.log("========== LOGIN START ==========");
+  console.log("Request Body:", req.body);
+
   try {
     let { username, password } = req.body;
 
     if (!username || !password) {
+      console.log("❌ Missing fields");
       return res.status(400).json({
         success: false,
         message: "Missing fields"
@@ -282,12 +317,18 @@ app.post("/login", async (req, res) => {
 
     username = username.toLowerCase().trim();
 
+    console.log("Login input:", username);
+
+    console.log("Searching user...");
     const [rows] = await db.query(
       "SELECT * FROM users WHERE email = ? OR username = ?",
       [username, username]
     );
 
+    console.log("Users found:", rows.length);
+
     if (rows.length === 0) {
+      console.log("❌ Invalid credentials - user not found");
       return res.json({
         success: false,
         message: "Invalid credentials"
@@ -296,38 +337,52 @@ app.post("/login", async (req, res) => {
 
     const user = rows[0];
 
+    console.log("User ID:", user.id);
+    console.log("Email:", user.email);
+    console.log("Username:", user.username);
+    console.log("Role:", user.role);
+    console.log("Verified:", user.is_verified);
+
     if (user.is_verified !== 1) {
+      console.log("❌ User not verified");
       return res.json({
         success: false,
         message: "User not verified yet"
       });
     }
 
+    console.log("Comparing password...");
     const match = await bcrypt.compare(password, user.password_hash);
 
+    console.log("Password match:", match);
+
     if (!match) {
+      console.log("❌ Invalid credentials - wrong password");
       return res.json({
         success: false,
         message: "Invalid credentials"
       });
     }
 
-    //updated code for login to return user details along with role
+    const finalRole = user.email === ADMIN_EMAIL ? "admin" : user.role;
+
+    console.log("✅ Login successful");
+    console.log("Returning Role:", finalRole);
+    console.log("========== LOGIN END ==========");
+
     return res.json({
-  success: true,
-  user: {
-    id: user.id,
-    username: user.username,
-    email: user.email,
-    role:
-      user.email === ADMIN_EMAIL
-        ? "admin"
-        : user.role
-  }
-});
+      success: true,
+      user: {
+        id: user.id,
+        username: user.username,
+        email: user.email,
+        role: finalRole
+      }
+    });
 
   } catch (err) {
     console.error("🔥 LOGIN ERROR:", err.message);
+    console.error(err.stack);
 
     return res.status(500).json({
       success: false,
@@ -989,14 +1044,23 @@ app.delete("/delete-document/:slot", async (req, res) => {
 
 /* ===== COMMON RESEND OTP FUNCTION ===== */
 async function resendOTP(email, purpose) {
+  console.log("========== RESEND OTP START ==========");
+  console.log("Purpose:", purpose);
+  console.log("Original Email:", email);
+
   email = email.toLowerCase().trim();
+
+  console.log("Formatted Email:", email);
 
   const [users] = await db.query(
     "SELECT id, email, is_verified FROM users WHERE email = ?",
     [email]
   );
 
+  console.log("Users Found:", users.length);
+
   if (users.length === 0) {
+    console.log("❌ Email not found");
     return {
       success: false,
       message: "Email not found"
@@ -1005,25 +1069,37 @@ async function resendOTP(email, purpose) {
 
   const user = users[0];
 
+  console.log("User ID:", user.id);
+  console.log("Verified:", user.is_verified);
+
   if (purpose === "signup" && user.is_verified === 1) {
+    console.log("❌ Account already verified");
     return {
       success: false,
       message: "Account already verified. Please login."
     };
   }
 
+  console.log("Generating new OTP...");
   const otp = generateOTP();
   const expiresAt = new Date(Date.now() + 1 * 60 * 1000);
 
+  console.log("Generated OTP:", otp);
+  console.log("Expires At:", expiresAt);
+
+  console.log("Deleting old OTP...");
   await db.query(
     "DELETE FROM otps WHERE user_id = ?",
     [user.id]
   );
+  console.log("Old OTP deleted");
 
+  console.log("Saving new OTP...");
   await db.query(
     "INSERT INTO otps (user_id, otp, expires_at) VALUES (?, ?, ?)",
     [user.id, otp, expiresAt]
   );
+  console.log("New OTP saved");
 
   const subject =
     purpose === "forgot"
@@ -1035,12 +1111,19 @@ async function resendOTP(email, purpose) {
       ? `Your password reset OTP is ${otp}. It expires in 1 minute.`
       : `Your signup OTP is ${otp}. It expires in 1 minute.`;
 
+  console.log("Sending OTP email...");
+  console.log("Subject:", subject);
+
   await transporter.sendMail({
     from: `"OTP Service" <${process.env.EMAIL_USER}>`,
     to: email,
     subject: subject,
     text: text
   });
+
+  console.log("✅ Email sent successfully");
+  console.log("Recipient:", email);
+  console.log("========== RESEND OTP END ==========");
 
   return {
     success: true,
@@ -1051,10 +1134,16 @@ async function resendOTP(email, purpose) {
 
 /* ===== RESEND SIGNUP OTP ===== */
 app.post("/resend-signup-otp", async (req, res) => {
+  console.log("===== RESEND SIGNUP OTP ROUTE =====");
+  console.log("Request Body:", req.body);
+
   try {
     const { email } = req.body;
 
+    console.log("Email:", email);
+
     if (!email) {
+      console.log("❌ Email missing");
       return res.status(400).json({
         success: false,
         message: "Email missing"
@@ -1062,10 +1151,14 @@ app.post("/resend-signup-otp", async (req, res) => {
     }
 
     const result = await resendOTP(email, "signup");
+
+    console.log("Result:", result);
+
     return res.json(result);
 
   } catch (err) {
-    console.error("RESEND SIGNUP OTP ERROR:", err.message);
+    console.error("🔥 RESEND SIGNUP OTP ERROR:", err.message);
+    console.error(err.stack);
 
     return res.status(500).json({
       success: false,
@@ -1077,10 +1170,16 @@ app.post("/resend-signup-otp", async (req, res) => {
 
 /* ===== RESEND FORGOT PASSWORD OTP ===== */
 app.post("/resend-forgot-otp", async (req, res) => {
+  console.log("===== RESEND FORGOT OTP ROUTE =====");
+  console.log("Request Body:", req.body);
+
   try {
     const { email } = req.body;
 
+    console.log("Email:", email);
+
     if (!email) {
+      console.log("❌ Email missing");
       return res.status(400).json({
         success: false,
         message: "Email missing"
@@ -1088,10 +1187,14 @@ app.post("/resend-forgot-otp", async (req, res) => {
     }
 
     const result = await resendOTP(email, "forgot");
+
+    console.log("Result:", result);
+
     return res.json(result);
 
   } catch (err) {
-    console.error("RESEND FORGOT OTP ERROR:", err.message);
+    console.error("🔥 RESEND FORGOT OTP ERROR:", err.message);
+    console.error(err.stack);
 
     return res.status(500).json({
       success: false,
@@ -1099,7 +1202,6 @@ app.post("/resend-forgot-otp", async (req, res) => {
     });
   }
 });
-
 
 /* =====================================================
    FORGOT PASSWORD ROUTES
