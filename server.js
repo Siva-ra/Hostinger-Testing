@@ -131,44 +131,57 @@ app.post("/signup", async (req, res) => {
 
     console.log("Email:", email);
     console.log("Username:", username);
+    console.log("Password received");
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+    if (!emailRegex.test(email)) {
+      console.log("❌ Invalid email:", email);
+      return res.json({
+        success: false,
+        message: "Invalid email"
+      });
+    }
+
+    if (username.length < 3) {
+      console.log("❌ Invalid username:", username);
+      return res.json({
+        success: false,
+        message: "Invalid username"
+      });
+    }
 
     console.log("Checking existing email...");
+    const [emailRows] = await db.query(
+      "SELECT id FROM users WHERE email = ?",
+      [email]
+    );
 
-const [emailRows] = await db.query(
-  "SELECT id FROM users WHERE email = ?",
-  [email]
-);
+    console.log("Email Exists:", emailRows.length > 0);
 
-console.log("Email Exists:", emailRows.length > 0);
-
-if (emailRows.length > 0)
-{
-    console.log("❌ Email already exists:", email);
-
-    return res.json({
+    if (emailRows.length > 0) {
+      console.log("❌ Email already exists:", email);
+      return res.json({
         success: false,
         message: "Email already exists"
-    });
-}
+      });
+    }
 
-console.log("Checking existing username...");
+    console.log("Checking existing username...");
+    const [usernameRows] = await db.query(
+      "SELECT id FROM users WHERE username = ?",
+      [username]
+    );
 
-const [usernameRows] = await db.query(
-  "SELECT id FROM users WHERE username = ?",
-  [username]
-);
+    console.log("Username Exists:", usernameRows.length > 0);
 
-console.log("Username Exists:", usernameRows.length > 0);
-
-if (usernameRows.length > 0)
-{
-    console.log("❌ Username already exists:", username);
-
-    return res.json({
+    if (usernameRows.length > 0) {
+      console.log("❌ Username already exists:", username);
+      return res.json({
         success: false,
         message: "Username already exists"
-    });
-}
+      });
+    }
 
     console.log("Hashing password...");
     const hashedPassword = await bcrypt.hash(password, 10);
@@ -179,8 +192,8 @@ if (usernameRows.length > 0)
 
     console.log("Creating user...");
     const [result] = await db.query(
-      `INSERT INTO users 
-      (email, username, password_hash, is_verified, role) 
+      `INSERT INTO users
+      (email, username, password_hash, is_verified, role)
       VALUES (?, ?, ?, ?, ?)`,
       [email, username, hashedPassword, 0, role]
     );
@@ -237,7 +250,6 @@ if (usernameRows.length > 0)
     });
   }
 });
-
 
 /* ================= VERIFY OTP ================= */
 app.post("/verifyotp", async (req, res) => {
