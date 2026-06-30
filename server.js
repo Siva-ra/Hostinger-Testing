@@ -143,6 +143,20 @@ app.post("/signup", async (req, res) => {
       });
     }
 
+    const allowedDomains = [
+  "gmail.com",
+  "effeindia.com"
+];
+
+const emailDomain = email.split("@")[1];
+
+if (!allowedDomains.includes(emailDomain)) {
+  console.log("❌ Invalid email domain:", emailDomain);
+  return res.json({
+    success: false,
+    message: "Invalid email domain"
+  });
+}
     if (username.length < 3) {
       console.log("❌ Invalid username:", username);
       return res.json({
