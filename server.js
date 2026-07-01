@@ -57,11 +57,14 @@ const storage = multer.diskStorage({
   }
 });
 
-
-
-//updated code for multer to only accept .glb and .gltf files
+/* ===== MULTER (ONLY GLB/GLTF + MAX 4MB) ===== */
 const upload = multer({
   storage: storage,
+
+  limits: {
+    fileSize: 4 * 1024 * 1024 // 4 MB
+  },
+
   fileFilter: function (req, file, cb) {
     const ext = path.extname(file.originalname).toLowerCase();
 
@@ -72,8 +75,6 @@ const upload = multer({
     }
   }
 });
-
-
 /* ===== DOCUMENT MULTER STORAGE ===== */
 const documentStorage = multer.diskStorage({
   destination: function (req, file, cb) {
@@ -1283,6 +1284,39 @@ setInterval(async () => {
     WHERE expires_at < NOW()
   `);
 }, 60000);
+
+
+
+// 3d model upload error handling middleware
+app.use((err, req, res, next) => {
+
+  console.log("========== UPLOAD ERROR ==========");
+
+  if (err instanceof multer.MulterError) {
+
+    console.log("Error Code:", err.code);
+
+    if (err.code === "LIMIT_FILE_SIZE") {
+      console.log("❌ Upload failed. File is larger than 4 MB.");
+
+      return res.status(400).json({
+        success: false,
+        message: "3D model size must not exceed 4 MB."
+      });
+    }
+  }
+
+  if (err) {
+    console.log("Error:", err.message);
+
+    return res.status(400).json({
+      success: false,
+      message: err.message
+    });
+  }
+
+  next();
+});
 
 
 /* ===== SERVER ===== */
