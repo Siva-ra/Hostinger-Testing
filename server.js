@@ -45,7 +45,7 @@ const transporter = nodemailer.createTransport({
 });
 
 /* ===== FIXED ADMIN EMAIL ===== */
-const ADMIN_EMAIL = "innovation@effetechnology.in";
+const ADMIN_EMAIL = "experience@effeverse.com";
 
 /* ===== 3D MODEL MULTER STORAGE ===== */
 const storage = multer.diskStorage({
