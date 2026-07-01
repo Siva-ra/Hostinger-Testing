@@ -379,7 +379,7 @@ app.post("/login", async (req, res) => {
       console.log("❌ Invalid credentials - user not found");
       return res.json({
         success: false,
-        message: "Invalid credentials"
+        message: "Invalid Username"
       });
     }
 
@@ -408,7 +408,7 @@ app.post("/login", async (req, res) => {
       console.log("❌ Invalid credentials - wrong password");
       return res.json({
         success: false,
-        message: "Invalid credentials"
+        message: "Invalid Password"
       });
     }
 
