@@ -228,7 +228,6 @@ if (!allowedDomains.includes(emailDomain)) {
 
     console.log("✅ OTP stored in database");
 
-    let emailSent = true;
 
     try {
       console.log("Sending OTP email...");
@@ -242,17 +241,22 @@ if (!allowedDomains.includes(emailDomain)) {
       console.log("📧 Email sent to:", email);
     } catch (err) {
       console.error("❌ EMAIL FAILED:", err.message);
-      emailSent = false;
+
+      // updated code
+
+      return res.json({
+  success: false,
+  message: "Failed to send OTP. Please try again."
+});
     }
 
     console.log("========== SIGNUP END ==========");
 
     return res.json({
-      success: true,
-      message: emailSent
-        ? "Signup successful! OTP sent."
-        : "Signup successful! OTP generated, but email failed."
-    });
+  success: true,
+  message: "Signup successful! OTP sent."
+});
+
 
   } catch (err) {
     console.error("🔥 SIGNUP ERROR:", err.message);
