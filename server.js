@@ -147,7 +147,8 @@ app.post("/signup", async (req, res) => {
     const allowedDomains = [
   "gmail.com",
   "effeindia.com",
-  "effeverse.com"
+  "effeverse.com",
+  "andritz.com"
 ];
 
 const emailDomain = email.split("@")[1];
