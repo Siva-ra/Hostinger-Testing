@@ -1107,12 +1107,23 @@ async function resendOTP(email, purpose) {
 
   console.log("Formatted Email:", email);
 
+  // Show all users currently in the database
+  const [allUsers] = await db.query(
+    "SELECT id, email, is_verified FROM users"
+  );
+
+  console.log("===== USERS TABLE =====");
+  console.table(allUsers);
+
+  // Search for the requested email
   const [users] = await db.query(
     "SELECT id, email, is_verified FROM users WHERE email = ?",
     [email]
   );
 
+  console.log("Searching for email:", email);
   console.log("Users Found:", users.length);
+//
 
   if (users.length === 0) {
     console.log("❌ Email not found");
