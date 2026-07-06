@@ -47,34 +47,78 @@ const transporter = nodemailer.createTransport({
 /* ===== FIXED ADMIN EMAIL ===== */
 const ADMIN_EMAIL = "experience@effeverse.com";
 
-/* ===== 3D MODEL MULTER STORAGE ===== */
+/* ================= UPLOAD FOLDER ================= */
+
+const uploadFolder = path.join(
+    __dirname,
+    "../public_html/uploads"
+);
+
+if (!fs.existsSync(uploadFolder)) {
+    fs.mkdirSync(uploadFolder, {
+        recursive: true
+    });
+}
+
+/* ================= MULTER ================= */
+
 const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    cb(null, "uploads/");
-  },
-  filename: function (req, file, cb) {
-    cb(null, Date.now() + path.extname(file.originalname));
-  }
-});
 
-/* ===== MULTER (ONLY GLB/GLTF + MAX 4MB) ===== */
-const upload = multer({
-  storage: storage,
+    destination: function (req, file, cb) {
+        cb(null, uploadFolder);
+    },
 
-  limits: {
-    fileSize: 4 * 1024 * 1024 // 4 MB
-  },
+    filename: function (req, file, cb) {
 
-  fileFilter: function (req, file, cb) {
-    const ext = path.extname(file.originalname).toLowerCase();
+        const uniqueName =
+            Date.now() +
+            "_" +
+            file.originalname;
 
-    if (ext === ".glb" || ext === ".gltf") {
-      cb(null, true);
-    } else {
-      cb(new Error("Only GLB or GLTF files are allowed"));
+        cb(null, uniqueName);
     }
-  }
 });
+
+const upload = multer({
+
+    storage: storage,
+
+    limits: {
+        fileSize: 4 * 1024 * 1024 // 4 MB
+    },
+
+    fileFilter: function (req, file, cb) {
+
+        const ext =
+            path.extname(file.originalname)
+            .toLowerCase();
+
+        if (
+            ext === ".glb" ||
+            ext === ".gltf"
+        ) {
+            cb(null, true);
+        }
+        else {
+
+            cb(
+                new Error(
+                    "Only GLB or GLTF files are allowed."
+                )
+            );
+        }
+    }
+});
+
+/* ================= STATIC FILES ================= */
+
+app.use(
+    "/uploads",
+    express.static(uploadFolder)
+);
+
+
+
 /* ===== DOCUMENT MULTER STORAGE ===== */
 const documentStorage = multer.diskStorage({
   destination: function (req, file, cb) {
@@ -556,123 +600,216 @@ message:err.message
 }
 });
 
-/* ===== UPLOAD OR REPLACE 3D MODEL ===== */
-app.post("/upload-model", upload.single("model"), async (req, res) => {
-  try {
-    const slot_number = req.body.slot_number;
+/* ================= UPLOAD MODEL ================= */
 
-    if (!req.file) {
-      return res.status(400).json({
-        success: false,
-        message: "No file uploaded"
-      });
+app.post(
+    "/upload-model",
+    upload.single("model"),
+    async (req, res) => {
+
+        try {
+
+            const slot_number =
+                parseInt(req.body.slot_number);
+
+            if (isNaN(slot_number)) {
+
+                return res.status(400).json({
+                    success: false,
+                    message: "Invalid slot number."
+                });
+            }
+
+            if (!req.file) {
+
+                return res.status(400).json({
+                    success: false,
+                    message: "No file uploaded."
+                });
+            }
+
+            const modelName =
+                req.file.originalname;
+
+            const modelPath =
+                "uploads/" + req.file.filename;
+
+            const [rows] =
+                await db.query(
+                    "SELECT * FROM models WHERE slot_number = ?",
+                    [slot_number]
+                );
+
+            if (rows.length > 0) {
+
+                const oldFile =
+                    path.join(
+                        uploadFolder,
+                        path.basename(
+                            rows[0].model_path
+                        )
+                    );
+
+                console.log(
+                    "Deleting old file:",
+                    oldFile
+                );
+
+                if (fs.existsSync(oldFile)) {
+                    fs.unlinkSync(oldFile);
+                }
+
+                await db.query(
+                    `UPDATE models
+                     SET model_name = ?,
+                         model_path = ?
+                     WHERE slot_number = ?`,
+                    [
+                        modelName,
+                        modelPath,
+                        slot_number
+                    ]
+                );
+
+            } else {
+
+                await db.query(
+                    `INSERT INTO models
+                    (
+                        slot_number,
+                        model_name,
+                        model_path
+                    )
+                    VALUES (?, ?, ?)`,
+                    [
+                        slot_number,
+                        modelName,
+                        modelPath
+                    ]
+                );
+            }
+
+            res.json({
+                success: true,
+                message: "Model uploaded successfully.",
+                slot_number: slot_number,
+                model_name: modelName,
+                model_path: modelPath
+            });
+
+        }
+        catch (err) {
+
+            console.error("UPLOAD MODEL ERROR:", err);
+
+            res.status(500).json({
+                success: false,
+                message: err.message
+            });
+        }
     }
+);
 
-    const modelName = req.file.originalname;
-    const modelPath = "uploads/" + req.file.filename;
+/* ================= GET MODELS ================= */
 
-    const [rows] = await db.query(
-      "SELECT * FROM models WHERE slot_number = ?",
-      [slot_number]
-    );
+app.get(
+    "/get-models",
+    async (req, res) => {
 
-    if (rows.length > 0) {
-      const oldPath = rows[0].model_path;
-      const fullOldPath = path.join(__dirname, oldPath);
+        try {
 
-      if (fs.existsSync(fullOldPath)) {
-        fs.unlinkSync(fullOldPath);
-      }
+            const [rows] =
+                await db.query(
+                    "SELECT * FROM models ORDER BY slot_number"
+                );
 
-      await db.query(
-        "UPDATE models SET model_name = ?, model_path = ? WHERE slot_number = ?",
-        [modelName, modelPath, slot_number]
-      );
-    } else {
-      await db.query(
-        "INSERT INTO models (slot_number, model_name, model_path) VALUES (?, ?, ?)",
-        [slot_number, modelName, modelPath]
-      );
+            res.json(rows);
+
+        }
+        catch (err) {
+
+            console.error("GET MODELS ERROR:", err);
+
+            res.status(500).json({
+                success: false,
+                message: err.message
+            });
+        }
     }
+);
 
-    res.json({
-      success: true,
-      message: "Model uploaded successfully",
-      slot_number: slot_number,
-      model_name: modelName,
-      model_path: modelPath
-    });
+/* ================= DELETE MODEL ================= */
 
-  } catch (err) {
-    console.error("UPLOAD MODEL ERROR:", err);
-    res.status(500).json({
-      success: false,
-      message: err.message
-    });
-  }
-});
+app.delete(
+    "/delete-model/:slot",
+    async (req, res) => {
 
-/* ===== GET ALL 3D MODELS ===== */
-app.get("/get-models", async (req, res) => {
-  try {
-    const [rows] = await db.query(
-      "SELECT * FROM models ORDER BY slot_number"
-    );
+        try {
 
-    res.json(rows);
+            const slot =
+                parseInt(req.params.slot);
 
-  } catch (err) {
-    console.error("GET MODELS ERROR:", err);
-    res.status(500).json({
-      success: false,
-      message: err.message
-    });
-  }
-});
+            if (isNaN(slot)) {
 
-/* ===== DELETE 3D MODEL ===== */
-app.delete("/delete-model/:slot", async (req, res) => {
-  try {
-    const slot = req.params.slot;
+                return res.status(400).json({
+                    success: false,
+                    message: "Invalid slot number."
+                });
+            }
 
-    const [rows] = await db.query(
-      "SELECT * FROM models WHERE slot_number = ?",
-      [slot]
-    );
+            const [rows] =
+                await db.query(
+                    "SELECT * FROM models WHERE slot_number = ?",
+                    [slot]
+                );
 
-    if (rows.length === 0) {
-      return res.json({
-        success: false,
-        message: "Model not found"
-      });
+            if (rows.length === 0) {
+
+                return res.status(404).json({
+                    success: false,
+                    message: "Model not found."
+                });
+            }
+
+            const fileToDelete =
+                path.join(
+                    uploadFolder,
+                    path.basename(
+                        rows[0].model_path
+                    )
+                );
+
+            console.log(
+                "Deleting file:",
+                fileToDelete
+            );
+
+            if (fs.existsSync(fileToDelete)) {
+                fs.unlinkSync(fileToDelete);
+            }
+
+            await db.query(
+                "DELETE FROM models WHERE slot_number = ?",
+                [slot]
+            );
+
+            res.json({
+                success: true,
+                message: "Model deleted successfully."
+            });
+
+        }
+        catch (err) {
+
+            console.error("DELETE MODEL ERROR:", err);
+
+            res.status(500).json({
+                success: false,
+                message: err.message
+            });
+        }
     }
-
-    const oldPath = rows[0].model_path;
-    const fullOldPath = path.join(__dirname, oldPath);
-
-    if (fs.existsSync(fullOldPath)) {
-      fs.unlinkSync(fullOldPath);
-    }
-
-    await db.query(
-      "DELETE FROM models WHERE slot_number = ?",
-      [slot]
-    );
-
-    res.json({
-      success: true,
-      message: "Model deleted"
-    });
-
-  } catch (err) {
-    console.error("DELETE MODEL ERROR:", err);
-    res.status(500).json({
-      success: false,
-      message: err.message
-    });
-  }
-});
-
+);
 
 /* ================= PLAYER PROGRESS ================= */
 
@@ -1299,35 +1436,36 @@ setInterval(async () => {
 
 
 
-// 3d model upload error handling middleware
+/* ================= UPLOAD 3D ERROR HANDLER ================= */
+
 app.use((err, req, res, next) => {
 
-  console.log("========== UPLOAD ERROR ==========");
+    console.log("========== UPLOAD ERROR ==========");
 
-  if (err instanceof multer.MulterError) {
+    if (err instanceof multer.MulterError) {
 
-    console.log("Error Code:", err.code);
+        console.log("Error Code:", err.code);
 
-    if (err.code === "LIMIT_FILE_SIZE") {
-      console.log("❌ Upload failed. File is larger than 4 MB.");
+        if (err.code === "LIMIT_FILE_SIZE") {
 
-      return res.status(400).json({
-        success: false,
-        message: "3D model size must not exceed 4 MB."
-      });
+            return res.status(400).json({
+                success: false,
+                message: "3D model size must not exceed 4 MB."
+            });
+        }
     }
-  }
 
-  if (err) {
-    console.log("Error:", err.message);
+    if (err) {
 
-    return res.status(400).json({
-      success: false,
-      message: err.message
-    });
-  }
+        console.log("Error:", err.message);
 
-  next();
+        return res.status(400).json({
+            success: false,
+            message: err.message
+        });
+    }
+
+    next();
 });
 
 
