@@ -114,6 +114,20 @@ const upload = multer({
 
 app.use(
     "/uploads",
+    (req,res,next)=>
+    {
+        res.header(
+            "Access-Control-Allow-Origin",
+            "*"
+        );
+
+        res.header(
+            "Access-Control-Allow-Headers",
+            "*"
+        );
+
+        next();
+    },
     express.static(uploadFolder)
 );
 
