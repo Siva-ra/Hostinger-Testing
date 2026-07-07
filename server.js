@@ -11,10 +11,6 @@ require("dotenv").config();
 
 const app = express();
 
-const cors = require("cors");
-
-
-
 /* ===== MIDDLEWARE ===== */
 app.use(cors());
 app.use(express.json());
