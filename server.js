@@ -11,12 +11,12 @@ require("dotenv").config();
 
 const app = express();
 
+const cors = require("cors");
+
 app.use(cors({
-    origin: [
-        "https://lightgreen-cheetah-775075.hostingersite.com"
-    ],
-    methods: ["GET", "POST", "PUT", "DELETE"],
-    credentials: true
+    origin: "*",
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"]
 }));
 
 /* ===== MIDDLEWARE ===== */
