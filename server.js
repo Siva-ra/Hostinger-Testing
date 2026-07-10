@@ -169,22 +169,21 @@ const documentUpload = multer({
 
 //Thumbnail Multer
 const thumbnailStorage = multer.diskStorage({
+
     destination: (req, file, cb) => {
         cb(null, "uploads/thumbnails/");
     },
 
     filename: (req, file, cb) => {
-        const slot = req.body.slot_number;
 
+        // Save with a temporary filename
         cb(
             null,
-            "thumb_" +
-            slot +
-            "_" +
-            Date.now() +
-            path.extname(file.originalname)
+            Date.now() + path.extname(file.originalname)
         );
+
     }
+
 });
 
 const uploadThumbnail = multer({
@@ -197,12 +196,7 @@ const uploadThumbnail = multer({
 
     fileFilter: (req, file, cb) => {
 
-        const allowed = [
-            ".jpg",
-            ".jpeg",
-            ".png",
-            ""
-        ];
+        const allowed = [".jpg", ".jpeg", ".png", ".webp"];
 
         const ext = path.extname(file.originalname).toLowerCase();
 
@@ -211,6 +205,7 @@ const uploadThumbnail = multer({
         } else {
             cb(new Error("Only image files are allowed."));
         }
+
     }
 
 });
@@ -1587,36 +1582,80 @@ app.post(
     uploadThumbnail.single("thumbnail"),
     async (req, res) => {
 
-        console.log("BODY:", req.body);
-        console.log("FILE:", req.file);
-
         try {
 
-            const slot = req.body.slot_number;
-            console.log("SLOT:", slot);
+            console.log("========== Thumbnail Upload ==========");
+            console.log("BODY :", req.body);
+            console.log("FILE :", req.file);
 
             if (!req.file) {
-                return res.status(400).send("No image uploaded");
+                return res.status(400).json({
+                    success: false,
+                    message: "No image uploaded"
+                });
             }
 
-            const fileName = req.file.filename;
+            const slot = req.body.slot_number;
 
-            await db.query(
-                `UPDATE videos
-                 SET thumbnail = ?
-                 WHERE video_name = ?`,
-                [
-                    fileName,
-                    "Video" + slot
-                ]
+            console.log("SLOT :", slot);
+
+            if (!slot) {
+                return res.status(400).json({
+                    success: false,
+                    message: "slot_number missing"
+                });
+            }
+
+            const extension = path.extname(req.file.originalname);
+
+            const newFileName = "thumb_" + slot + extension;
+
+            const oldPath = req.file.path;
+
+            const newPath = path.join(
+                "uploads",
+                "thumbnails",
+                newFileName
             );
 
-            res.send("Thumbnail Uploaded Successfully");
+            fs.rename(oldPath, newPath, async (err) => {
 
-        } catch (err) {
+                if (err) {
+                    console.log(err);
+
+                    return res.status(500).json({
+                        success: false,
+                        message: err.message
+                    });
+                }
+
+                await db.query(
+                    `UPDATE videos
+                     SET thumbnail = ?
+                     WHERE video_name = ?`,
+                    [
+                        newFileName,
+                        "Video" + slot
+                    ]
+                );
+
+                res.json({
+                    success: true,
+                    message: "Thumbnail Uploaded Successfully",
+                    thumbnail: newFileName
+                });
+
+            });
+
+        }
+        catch (err) {
 
             console.log(err);
-            res.status(500).send("Upload Failed");
+
+            res.status(500).json({
+                success: false,
+                message: err.message
+            });
 
         }
 
