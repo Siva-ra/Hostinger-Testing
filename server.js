@@ -201,7 +201,7 @@ const uploadThumbnail = multer({
             ".jpg",
             ".jpeg",
             ".png",
-            ".webp"
+            ""
         ];
 
         const ext = path.extname(file.originalname).toLowerCase();
@@ -1587,9 +1587,13 @@ app.post(
     uploadThumbnail.single("thumbnail"),
     async (req, res) => {
 
+        console.log("BODY:", req.body);
+        console.log("FILE:", req.file);
+
         try {
 
             const slot = req.body.slot_number;
+            console.log("SLOT:", slot);
 
             if (!req.file) {
                 return res.status(400).send("No image uploaded");
@@ -1598,11 +1602,9 @@ app.post(
             const fileName = req.file.filename;
 
             await db.query(
-                `
-                UPDATE videos
-                SET thumbnail = ?
-                WHERE video_name = ?
-                `,
+                `UPDATE videos
+                 SET thumbnail = ?
+                 WHERE video_name = ?`,
                 [
                     fileName,
                     "Video" + slot
@@ -1620,7 +1622,6 @@ app.post(
 
     }
 );
-
 /* =====================================================
    FORGOT PASSWORD ROUTES
 ===================================================== */
