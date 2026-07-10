@@ -171,8 +171,8 @@ const documentUpload = multer({
 const thumbnailStorage = multer.diskStorage({
 
     destination: (req, file, cb) => {
-        cb(null, "uploads/thumbnails/");
-    },
+    cb(null, path.join(__dirname, "thumbnails"));
+},
 
     filename: (req, file, cb) => {
 
@@ -1612,11 +1612,11 @@ app.post(
 
             const oldPath = req.file.path;
 
-            const newPath = path.join(
-                "uploads",
-                "thumbnails",
-                newFileName
-            );
+           const newPath = path.join(
+    __dirname,
+    "thumbnails",
+    newFileName
+);
 
             fs.rename(oldPath, newPath, async (err) => {
 
