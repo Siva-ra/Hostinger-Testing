@@ -167,6 +167,53 @@ const documentUpload = multer({
   }
 });
 
+//Thumbnail Multer
+const thumbnailStorage = multer.diskStorage({
+    destination: (req, file, cb) => {
+        cb(null, "uploads/thumbnails/");
+    },
+
+    filename: (req, file, cb) => {
+        const slot = req.body.slot_number;
+
+        cb(
+            null,
+            "thumb_" +
+            slot +
+            "_" +
+            Date.now() +
+            path.extname(file.originalname)
+        );
+    }
+});
+
+const uploadThumbnail = multer({
+
+    storage: thumbnailStorage,
+
+    limits: {
+        fileSize: 2 * 1024 * 1024
+    },
+
+    fileFilter: (req, file, cb) => {
+
+        const allowed = [
+            ".jpg",
+            ".jpeg",
+            ".png",
+            ".webp"
+        ];
+
+        const ext = path.extname(file.originalname).toLowerCase();
+
+        if (allowed.includes(ext)) {
+            cb(null, true);
+        } else {
+            cb(new Error("Only image files are allowed."));
+        }
+    }
+
+});
 
 /* ===== OTP FUNCTION ===== */
 function generateOTP() {
@@ -1533,6 +1580,46 @@ app.get("/get-links", async (req, res) => {
   }
 });
 
+
+//Thumbnail
+app.post(
+    "/upload-thumbnail",
+    uploadThumbnail.single("thumbnail"),
+    async (req, res) => {
+
+        try {
+
+            const slot = req.body.slot_number;
+
+            if (!req.file) {
+                return res.status(400).send("No image uploaded");
+            }
+
+            const fileName = req.file.filename;
+
+            await db.query(
+                `
+                UPDATE videos
+                SET thumbnail = ?
+                WHERE video_name = ?
+                `,
+                [
+                    fileName,
+                    "Video" + slot
+                ]
+            );
+
+            res.send("Thumbnail Uploaded Successfully");
+
+        } catch (err) {
+
+            console.log(err);
+            res.status(500).send("Upload Failed");
+
+        }
+
+    }
+);
 
 /* =====================================================
    FORGOT PASSWORD ROUTES
