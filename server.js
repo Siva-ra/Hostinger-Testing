@@ -1424,6 +1424,116 @@ app.post("/resend-forgot-otp", async (req, res) => {
   }
 });
 
+
+
+/* =====================================================
+   WEB LINK MANAGER
+===================================================== */
+
+/* ===== SAVE LINK ===== */
+app.post("/save-link", async (req, res) => {
+  try {
+    const { link_name, link_url } = req.body;
+
+    if (!link_name || !link_url) {
+      return res.json({
+        success: false,
+        message: "Missing fields"
+      });
+    }
+
+    const [rows] = await db.query(
+      "SELECT id FROM web_links WHERE link_name = ?",
+      [link_name]
+    );
+
+    if (rows.length > 0) {
+      await db.query(
+        "UPDATE web_links SET link_url = ? WHERE link_name = ?",
+        [link_url, link_name]
+      );
+
+      return res.json({
+        success: true,
+        message: "Link updated"
+      });
+    }
+
+    await db.query(
+      "INSERT INTO web_links (link_name, link_url) VALUES (?, ?)",
+      [link_name, link_url]
+    );
+
+    res.json({
+      success: true,
+      message: "Link saved"
+    });
+
+  } catch (err) {
+    console.error("SAVE LINK ERROR:", err.message);
+
+    res.status(500).json({
+      success: false,
+      message: err.message
+    });
+  }
+});
+
+/* ===== DELETE LINK ===== */
+app.post("/delete-link", async (req, res) => {
+  try {
+    const { link_name } = req.body;
+
+    if (!link_name) {
+      return res.json({
+        success: false,
+        message: "Link name missing"
+      });
+    }
+
+    await db.query(
+      "DELETE FROM web_links WHERE link_name = ?",
+      [link_name]
+    );
+
+    res.json({
+      success: true,
+      message: "Link deleted"
+    });
+
+  } catch (err) {
+    console.error("DELETE LINK ERROR:", err.message);
+
+    res.status(500).json({
+      success: false,
+      message: err.message
+    });
+  }
+});
+
+/* ===== GET LINKS ===== */
+app.get("/get-links", async (req, res) => {
+  try {
+
+    const [rows] = await db.query(
+      "SELECT * FROM web_links"
+    );
+
+    res.json(rows);
+
+  } catch (err) {
+
+    console.log(err);
+
+    res.status(500).json({
+      success: false,
+      message: err.message
+    });
+
+  }
+});
+
+
 /* =====================================================
    FORGOT PASSWORD ROUTES
 ===================================================== */
