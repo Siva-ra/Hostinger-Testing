@@ -25,6 +25,21 @@ app.use("/thumbnails", express.static(path.join(__dirname, "thumbnails")));
 console.log("Serving thumbnails from:", path.join(__dirname, "thumbnails"));
 console.log("__dirname =", __dirname);
 
+/*dummy*/
+const fs = require("fs");
+const path = require("path");
+
+app.get("/debug", (req, res) => {
+    const folder = path.join(__dirname, "thumbnails");
+
+    res.json({
+        dirname: __dirname,
+        folder: folder,
+        exists: fs.existsSync(folder),
+        files: fs.existsSync(folder) ? fs.readdirSync(folder) : []
+    });
+});
+
 
 /* ===== DATABASE ===== */
 const db = mysql.createPool({
