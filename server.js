@@ -205,19 +205,22 @@ const uploadThumbnail = multer({
         fileSize: 2 * 1024 * 1024
     },
 
-    fileFilter: (req, file, cb) => {
+   fileFilter: (req, file, cb) => {
 
-        const allowed = [".jpg", ".jpeg", ".png", ".webp"];
+    const allowedMime = [
+        "image/jpg",
+        "image/jpeg",
+        "image/png",
+        "image/webp"
+    ];
 
-        const ext = path.extname(file.originalname).toLowerCase();
-
-        if (allowed.includes(ext)) {
-            cb(null, true);
-        } else {
-            cb(new Error("Only image files are allowed."));
-        }
-
+    if (allowedMime.includes(file.mimetype)) {
+        cb(null, true);
+    } else {
+        cb(new Error("Only JPG, PNG and WEBP images are allowed."));
     }
+
+}
 
 });
 
@@ -1608,6 +1611,9 @@ app.post(
                     message: "No image uploaded"
                 });
             }
+            console.log("Name:", req.file.originalname);
+            console.log("Type:", req.file.mimetype);
+            console.log("Size:", req.file.size);
 
             const slot = req.body.slot_number;
 
