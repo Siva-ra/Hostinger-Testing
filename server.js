@@ -21,7 +21,7 @@ app.use(cors({
 
 app.use(express.json());
 app.use("/uploads", express.static("uploads"));
-app.use("/thumbnails", express.static("thumbnails"));
+app.use("/thumbnails", express.static("thumbnailsDir"));
 
 
 
@@ -223,6 +223,14 @@ const uploadThumbnail = multer({
 }
 
 });
+
+const thumbnailDir = path.join(__dirname, "thumbnails");
+
+// Create thumbnails folder automatically if it doesn't exist
+if (!fs.existsSync(thumbnailDir)) {
+    fs.mkdirSync(thumbnailDir, { recursive: true });
+    console.log("✅ thumbnails folder created");
+}
 
 
 
