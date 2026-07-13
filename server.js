@@ -25,19 +25,27 @@ app.use("/thumbnails", express.static(path.join(__dirname, "thumbnails")));
 console.log("Serving thumbnails from:", path.join(__dirname, "thumbnails"));
 console.log("__dirname =", __dirname);
 
-/*dummy*/
+/*debug*/
 
 app.get("/debug", (req, res) => {
     const folder = path.join(__dirname, "thumbnails");
 
+    let files = [];
+
+    if (fs.existsSync(folder)) {
+        files = fs.readdirSync(folder).map(file => ({
+            name: file,
+            size: fs.statSync(path.join(folder, file)).size
+        }));
+    }
+
     res.json({
         dirname: __dirname,
-        folder: folder,
+        folder,
         exists: fs.existsSync(folder),
-        files: fs.existsSync(folder) ? fs.readdirSync(folder) : []
+        files
     });
 });
-
 
 /* ===== DATABASE ===== */
 const db = mysql.createPool({
@@ -1664,14 +1672,13 @@ console.log("Before rename");
 console.log("Old exists:", fs.existsSync(oldPath));
 console.log("New exists:", fs.existsSync(newPath));
 
-await fs.promises.copyFile(oldPath, newPath);
-await fs.promises.unlink(oldPath);
+await fs.promises.rename(oldPath, newPath);
 
-console.log("Copied:", fs.existsSync(newPath));
-
-console.log("After rename");
+console.log("========== AFTER RENAME ==========");
 console.log("Old exists:", fs.existsSync(oldPath));
 console.log("New exists:", fs.existsSync(newPath));
+console.log("Files:", fs.readdirSync(path.join(__dirname, "thumbnails")));
+
 
 await db.query(
     `UPDATE videos
