@@ -1660,12 +1660,18 @@ app.post(
     newFileName
 );
 
-console.log("OLD PATH:", oldPath);
-console.log("NEW PATH:", newPath);
-console.log("__dirname:", __dirname);
-console.log("FILE EXISTS:", fs.existsSync(oldPath));
+console.log("Before rename");
+console.log("Old exists:", fs.existsSync(oldPath));
+console.log("New exists:", fs.existsSync(newPath));
 
-            await fs.promises.rename(oldPath, newPath);
+await fs.promises.copyFile(oldPath, newPath);
+await fs.promises.unlink(oldPath);
+
+console.log("Copied:", fs.existsSync(newPath));
+
+console.log("After rename");
+console.log("Old exists:", fs.existsSync(oldPath));
+console.log("New exists:", fs.existsSync(newPath));
 
 await db.query(
     `UPDATE videos
