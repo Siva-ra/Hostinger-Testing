@@ -26,8 +26,6 @@ console.log("Serving thumbnails from:", path.join(__dirname, "thumbnails"));
 console.log("__dirname =", __dirname);
 
 /*dummy*/
-const fs = require("fs");
-const path = require("path");
 
 app.get("/debug", (req, res) => {
     const folder = path.join(__dirname, "thumbnails");
