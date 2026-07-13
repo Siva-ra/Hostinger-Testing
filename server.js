@@ -17,8 +17,13 @@ app.use(cors({
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"]
 }));
+
+
 app.use(express.json());
 app.use("/uploads", express.static("uploads"));
+app.use("/thumbnails", express.static("thumbnails"));
+
+
 
 /* ===== DATABASE ===== */
 const db = mysql.createPool({
@@ -28,6 +33,7 @@ const db = mysql.createPool({
   password: process.env.DB_PASSWORD,
   database: process.env.DB_NAME
 });
+
 
 /* ===== TEST DB CONNECTION ===== */
 db.getConnection()
@@ -39,6 +45,7 @@ db.getConnection()
     console.error("❌ Database connection failed:", err.message);
   });
 
+
 /* ===== MAIL CONFIG ===== */
 const transporter = nodemailer.createTransport({
   service: "gmail",
@@ -47,6 +54,7 @@ const transporter = nodemailer.createTransport({
     pass: process.env.EMAIL_PASS
   }
 });
+
 
 /* ===== FIXED ADMIN EMAIL ===== */
 const ADMIN_EMAIL = "experience@effeverse.com";
@@ -63,6 +71,7 @@ if (!fs.existsSync(uploadFolder)) {
         recursive: true
     });
 }
+
 
 /* ================= MULTER ================= */
 
@@ -167,6 +176,8 @@ const documentUpload = multer({
   }
 });
 
+
+
 //Thumbnail Multer
 const thumbnailStorage = multer.diskStorage({
 
@@ -210,10 +221,13 @@ const uploadThumbnail = multer({
 
 });
 
+
+
 /* ===== OTP FUNCTION ===== */
 function generateOTP() {
   return Math.floor(100000 + Math.random() * 900000).toString();
 }
+
 
 /* ================= SIGNUP ================= */
 app.post("/signup", async (req, res) => {
@@ -1618,34 +1632,28 @@ app.post(
     newFileName
 );
 
-            fs.rename(oldPath, newPath, async (err) => {
+console.log("OLD PATH:", oldPath);
+console.log("NEW PATH:", newPath);
+console.log("__dirname:", __dirname);
+console.log("FILE EXISTS:", fs.existsSync(oldPath));
 
-                if (err) {
-                    console.log(err);
+            await fs.promises.rename(oldPath, newPath);
 
-                    return res.status(500).json({
-                        success: false,
-                        message: err.message
-                    });
-                }
+await db.query(
+    `UPDATE videos
+     SET thumbnail = ?
+     WHERE video_name = ?`,
+    [
+        newFileName,
+        "Video" + slot
+    ]
+);
 
-                await db.query(
-                    `UPDATE videos
-                     SET thumbnail = ?
-                     WHERE video_name = ?`,
-                    [
-                        newFileName,
-                        "Video" + slot
-                    ]
-                );
-
-                res.json({
-                    success: true,
-                    message: "Thumbnail Uploaded Successfully",
-                    thumbnail: newFileName
-                });
-
-            });
+return res.json({
+    success: true,
+    message: "Thumbnail Uploaded Successfully",
+    thumbnail: newFileName
+});
 
         }
         catch (err) {
@@ -1661,6 +1669,9 @@ app.post(
 
     }
 );
+
+
+
 /* =====================================================
    FORGOT PASSWORD ROUTES
 ===================================================== */
