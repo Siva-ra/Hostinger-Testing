@@ -30,22 +30,35 @@ app.use(express.json());
 app.use("/uploads", express.static("uploads"));
 
 //Thumbnail
+//app.use("/thumbnails", (req, res, next) => {
+ //   res.setHeader("Access-Control-Allow-Origin", "*");
+   // res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
+   // res.setHeader("Access-Control-Allow-Headers", "*");
+//    next();
+//});
+
+app.use("/thumbnails", express.static(thumbnailDir, {
+    setHeaders: (res) => {
+        res.setHeader("Access-Control-Allow-Origin", "*");
+        res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
+       res.setHeader("Access-Control-Allow-Headers", "*");
+    }
+}));
+
+
 app.use("/thumbnails", (req, res, next) => {
-    res.setHeader("Access-Control-Allow-Origin", "*");
-    res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
-    res.setHeader("Access-Control-Allow-Headers", "*");
+    console.log("Thumbnail request:", req.originalUrl);
     next();
 });
 
 app.use("/thumbnails", express.static(thumbnailDir, {
     setHeaders: (res) => {
         res.setHeader("Access-Control-Allow-Origin", "*");
-        res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
-        res.setHeader("Access-Control-Allow-Headers", "*");
     }
 }));
 
-app.use("/thumbnails", express.static(thumbnailDir));
+
+//app.use("/thumbnails", express.static(thumbnailDir));
 
 console.log("Serving thumbnails from:", thumbnailDir);
 console.log("__dirname =", __dirname);
@@ -73,10 +86,10 @@ app.get("/debug", (req, res) => {
 
 
 // TEMPORARY TEST ROUTE
-app.get("/thumbnails/test.txt", (req, res) => {
-    res.setHeader("Access-Control-Allow-Origin", "*");
-    res.send("Hello from Express");
-});
+//app.get("/thumbnails/test.txt", (req, res) => {
+  //  res.setHeader("Access-Control-Allow-Origin", "*");
+//    res.send("Hello from Express");
+//});
 
 
 /* ===== DATABASE ===== */
