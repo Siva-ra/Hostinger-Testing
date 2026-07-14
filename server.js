@@ -56,6 +56,14 @@ app.get("/debug", (req, res) => {
     });
 });
 
+
+// TEMPORARY TEST ROUTE
+app.get("/thumbnails/test.txt", (req, res) => {
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    res.send("Hello from Express");
+});
+
+
 /* ===== DATABASE ===== */
 const db = mysql.createPool({
   host: process.env.DB_HOST,
