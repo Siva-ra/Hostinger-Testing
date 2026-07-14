@@ -84,6 +84,20 @@ app.get("/debug", (req, res) => {
     });
 });
 
+//added 
+app.get("/test-thumb", (req, res) => {
+    const file = path.join(thumbnailDir, "thumb_1.png");
+
+    console.log("Testing file:", file);
+    console.log("Exists:", fs.existsSync(file));
+
+    res.sendFile(file, (err) => {
+        if (err) {
+            console.log("sendFile error:", err);
+            res.status(500).send(err.message);
+        }
+    });
+});
 
 // TEMPORARY TEST ROUTE
 //app.get("/thumbnails/test.txt", (req, res) => {
