@@ -45,6 +45,7 @@ app.use("/thumbnails", express.static(thumbnailDir, {
     }
 }));
 
+app.use("/thumbnails", express.static(thumbnailDir));
 
 console.log("Serving thumbnails from:", thumbnailDir);
 console.log("__dirname =", __dirname);
