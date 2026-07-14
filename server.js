@@ -11,6 +11,13 @@ require("dotenv").config();
 
 const app = express();
 
+const thumbnailDir = path.join(
+    __dirname,
+    "../public_html/thumbnails"
+);
+
+
+
 /* ===== MIDDLEWARE ===== */
 app.use(cors({
     origin: "*",
@@ -21,14 +28,16 @@ app.use(cors({
 
 app.use(express.json());
 app.use("/uploads", express.static("uploads"));
-app.use("/thumbnails", express.static(path.join(__dirname, "thumbnails")));
-console.log("Serving thumbnails from:", path.join(__dirname, "thumbnails"));
+app.use(
+    "/thumbnails",
+    express.static(thumbnailDir)
+);
+console.log("Serving thumbnails from:", thumbnailDir);
 console.log("__dirname =", __dirname);
 
-/*debug*/
-
+//Debug for Thumbnail
 app.get("/debug", (req, res) => {
-    const folder = path.join(__dirname, "thumbnails");
+    const folder = thumbnailDir;
 
     let files = [];
 
@@ -199,12 +208,11 @@ const documentUpload = multer({
 });
 
 
-
 //Thumbnail Multer
 const thumbnailStorage = multer.diskStorage({
 
-    destination: (req, file, cb) => {
-    cb(null, path.join(__dirname, "thumbnails"));
+   destination: (req, file, cb) => {
+    cb(null, thumbnailDir);
 },
 
     filename: (req, file, cb) => {
@@ -246,13 +254,13 @@ const uploadThumbnail = multer({
 
 });
 
-const thumbnailDir = path.join(__dirname, "thumbnails");
 
 // Create thumbnails folder automatically if it doesn't exist
 if (!fs.existsSync(thumbnailDir)) {
     fs.mkdirSync(thumbnailDir, { recursive: true });
     console.log("✅ thumbnails folder created");
 }
+
 
 
 
@@ -1662,9 +1670,8 @@ app.post(
 
             const oldPath = req.file.path;
 
-           const newPath = path.join(
-    __dirname,
-    "thumbnails",
+          const newPath = path.join(
+    thumbnailDir,
     newFileName
 );
 
@@ -1677,7 +1684,7 @@ await fs.promises.rename(oldPath, newPath);
 console.log("========== AFTER RENAME ==========");
 console.log("Old exists:", fs.existsSync(oldPath));
 console.log("New exists:", fs.existsSync(newPath));
-console.log("Files:", fs.readdirSync(path.join(__dirname, "thumbnails")));
+console.log("Files:", fs.readdirSync(thumbnailDir));
 
 
 await db.query(
