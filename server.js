@@ -28,10 +28,24 @@ app.use(cors({
 
 app.use(express.json());
 app.use("/uploads", express.static("uploads"));
-app.use(
-    "/thumbnails",
-    express.static(thumbnailDir)
-);
+
+//Thumbnail
+app.use("/thumbnails", (req, res, next) => {
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
+    res.setHeader("Access-Control-Allow-Headers", "*");
+    next();
+});
+
+app.use("/thumbnails", express.static(thumbnailDir, {
+    setHeaders: (res) => {
+        res.setHeader("Access-Control-Allow-Origin", "*");
+        res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
+        res.setHeader("Access-Control-Allow-Headers", "*");
+    }
+}));
+
+
 console.log("Serving thumbnails from:", thumbnailDir);
 console.log("__dirname =", __dirname);
 
