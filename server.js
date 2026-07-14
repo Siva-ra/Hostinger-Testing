@@ -1725,6 +1725,10 @@ app.post(
     newFileName
 );
 
+console.log("Thumbnail Dir:", thumbnailDir);
+console.log("Old Path:", oldPath);
+console.log("New Path:", newPath);
+
 console.log("Before rename");
 console.log("Old exists:", fs.existsSync(oldPath));
 console.log("New exists:", fs.existsSync(newPath));
