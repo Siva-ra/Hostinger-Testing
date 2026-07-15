@@ -84,6 +84,21 @@ app.get("/debug", (req, res) => {
     });
 });
 
+app.get("/thumbnail/:file", (req, res) => {
+
+    const filePath = path.join(thumbnailDir, req.params.file);
+
+    if (!fs.existsSync(filePath)) {
+        return res.status(404).send("Not Found");
+    }
+
+    res.setHeader("Access-Control-Allow-Origin", "https://effetechnology.in");
+    res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");
+
+    res.sendFile(filePath);
+});
+
+
 //added 
 app.get("/test-thumb", (req, res) => {
     const file = path.join(thumbnailDir, "thumb_1.png");
