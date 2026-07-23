@@ -1716,8 +1716,7 @@ app.post(
             const extension =
                 path.extname(req.file.originalname);
 
-            const newFileName =
-                thumb_${slot}${extension};
+            const newFileName = "thumb_" + slot + extension;
 
             const oldPath = req.file.path;
 
@@ -1758,7 +1757,7 @@ app.post(
 
                 [
                     newFileName,
-                    Video${slot}
+                   "Video" + slot
                 ]
 
             );
@@ -1778,8 +1777,7 @@ app.post(
 
                 thumbnail: newFileName,
 
-                url:
-                    https://lightgreen-cheetah-775075.hostingersite.com/thumbnails/${newFileName}
+                url: "https://lightgreen-cheetah-775075.hostingersite.com/thumbnails/" + newFileName
 
             });
 
