@@ -11,10 +11,12 @@ require("dotenv").config();
 
 const app = express();
 
-const thumbnailDir = path.join(
-    __dirname,
-    "../public_html/thumbnails"
-);
+const thumbnailDir = path.join(__dirname, "../public_html/thumbnails");
+
+console.log("==================================");
+console.log("Thumbnail Directory:", thumbnailDir);
+console.log("__dirname:", __dirname);
+console.log("==================================");
 
 
 
@@ -46,74 +48,61 @@ app.use("/uploads", express.static("uploads"));
 //}));
 
 
-app.use("/thumbnails", (req, res, next) => {
-    console.log("Thumbnail request:", req.originalUrl);
-    next();
-});
+// Create folder if it doesn't exist
+if (!fs.existsSync(thumbnailDir)) {
+    fs.mkdirSync(thumbnailDir, { recursive: true });
+    console.log("✅ Created thumbnails folder");
+}
 
-app.use("/thumbnails", express.static(thumbnailDir, {
-    setHeaders: (res) => {
-        res.setHeader("Access-Control-Allow-Origin", "*");
-    }
-}));
+// Serve thumbnails
+app.use(
+    "/thumbnails",
+    express.static(thumbnailDir, {
+        setHeaders: (res) => {
+            res.setHeader("Access-Control-Allow-Origin", "*");
+            res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");
+            res.setHeader("Cache-Control", "no-store");
+        }
+    })
+);
 
-
-//app.use("/thumbnails", express.static(thumbnailDir));
-
-console.log("Serving thumbnails from:", thumbnailDir);
-console.log("__dirname =", __dirname);
-
-//Debug for Thumbnail
+// Debug endpoint
 app.get("/debug", (req, res) => {
-    const folder = thumbnailDir;
 
     let files = [];
 
-    if (fs.existsSync(folder)) {
-        files = fs.readdirSync(folder).map(file => ({
+    if (fs.existsSync(thumbnailDir)) {
+
+        files = fs.readdirSync(thumbnailDir).map(file => ({
             name: file,
-            size: fs.statSync(path.join(folder, file)).size
+            size: fs.statSync(path.join(thumbnailDir, file)).size
         }));
+
     }
 
     res.json({
-        dirname: __dirname,
-        folder,
-        exists: fs.existsSync(folder),
+        folder: thumbnailDir,
+        exists: fs.existsSync(thumbnailDir),
+        totalFiles: files.length,
         files
     });
+
 });
 
-app.get("/thumbnail/:file", (req, res) => {
-
-    const filePath = path.join(thumbnailDir, req.params.file);
-
-    if (!fs.existsSync(filePath)) {
-        return res.status(404).send("Not Found");
-    }
-
-    res.setHeader("Access-Control-Allow-Origin", "https://effetechnology.in");
-    res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");
-
-    res.sendFile(filePath);
-});
-
-
-//added 
+// Test thumbnail
 app.get("/test-thumb", (req, res) => {
+
     const file = path.join(thumbnailDir, "thumb_1.png");
 
-    console.log("Testing file:", file);
-    console.log("Exists:", fs.existsSync(file));
+    console.log("Testing:", file);
 
-    res.sendFile(file, (err) => {
-        if (err) {
-            console.log("sendFile error:", err);
-            res.status(500).send(err.message);
-        }
-    });
+    if (!fs.existsSync(file)) {
+        return res.status(404).send("thumb_1.png not found");
+    }
+
+    res.sendFile(file);
+
 });
-
 // TEMPORARY TEST ROUTE
 //app.get("/thumbnails/test.txt", (req, res) => {
   //  res.setHeader("Access-Control-Allow-Origin", "*");
@@ -273,16 +262,17 @@ const documentUpload = multer({
 });
 
 
-//Thumbnail Multer
+// Multer Storage
 const thumbnailStorage = multer.diskStorage({
 
-   destination: (req, file, cb) => {
-    cb(null, thumbnailDir);
-},
+    destination(req, file, cb) {
 
-    filename: (req, file, cb) => {
+        cb(null, thumbnailDir);
 
-        // Save with a temporary filename
+    },
+
+    filename(req, file, cb) {
+
         cb(
             null,
             Date.now() + path.extname(file.originalname)
@@ -297,36 +287,30 @@ const uploadThumbnail = multer({
     storage: thumbnailStorage,
 
     limits: {
+
         fileSize: 2 * 1024 * 1024
+
     },
 
-   fileFilter: (req, file, cb) => {
+    fileFilter(req, file, cb) {
 
-    const allowedMime = [
-        "image/jpg",
-        "image/jpeg",
-        "image/png",
-        "image/webp"
-    ];
+        const allowed = [
+            "image/jpeg",
+            "image/jpg",
+            "image/png",
+            "image/webp"
+        ];
 
-    if (allowedMime.includes(file.mimetype)) {
-        cb(null, true);
-    } else {
-        cb(new Error("Only JPG, PNG and WEBP images are allowed."));
+        if (allowed.includes(file.mimetype)) {
+            cb(null, true);
+        }
+        else {
+            cb(new Error("Only JPG, JPEG, PNG and WEBP images are allowed."));
+        }
+
     }
 
-}
-
 });
-
-
-// Create thumbnails folder automatically if it doesn't exist
-if (!fs.existsSync(thumbnailDir)) {
-    fs.mkdirSync(thumbnailDir, { recursive: true });
-    console.log("✅ thumbnails folder created");
-}
-
-
 
 
 /* ===== OTP FUNCTION ===== */
@@ -1696,7 +1680,7 @@ app.get("/get-links", async (req, res) => {
 });
 
 
-//Thumbnail
+// Upload Thumbnail
 app.post(
     "/upload-thumbnail",
     uploadThumbnail.single("thumbnail"),
@@ -1705,88 +1689,116 @@ app.post(
         try {
 
             console.log("========== Thumbnail Upload ==========");
-            console.log("BODY :", req.body);
-            console.log("FILE :", req.file);
+
+            console.log("Body:", req.body);
+            console.log("File:", req.file);
 
             if (!req.file) {
+
                 return res.status(400).json({
                     success: false,
-                    message: "No image uploaded"
+                    message: "No thumbnail uploaded."
                 });
+
             }
-            console.log("Name:", req.file.originalname);
-            console.log("Type:", req.file.mimetype);
-            console.log("Size:", req.file.size);
 
             const slot = req.body.slot_number;
 
-            console.log("SLOT :", slot);
-
             if (!slot) {
+
                 return res.status(400).json({
                     success: false,
-                    message: "slot_number missing"
+                    message: "slot_number is missing."
                 });
+
             }
 
-            const extension = path.extname(req.file.originalname);
+            const extension =
+                path.extname(req.file.originalname);
 
-            const newFileName = "thumb_" + slot + extension;
+            const newFileName =
+                thumb_${slot}${extension};
 
             const oldPath = req.file.path;
 
-          const newPath = path.join(
-    thumbnailDir,
-    newFileName
-);
+            const newPath =
+                path.join(thumbnailDir, newFileName);
 
-console.log("Thumbnail Dir:", thumbnailDir);
-console.log("Old Path:", oldPath);
-console.log("New Path:", newPath);
+            console.log("Old Path:", oldPath);
+            console.log("New Path:", newPath);
 
-console.log("Before rename");
-console.log("Old exists:", fs.existsSync(oldPath));
-console.log("New exists:", fs.existsSync(newPath));
+            // Delete existing thumbnail if present
+            if (fs.existsSync(newPath)) {
 
-await fs.promises.rename(oldPath, newPath);
+                fs.unlinkSync(newPath);
 
-console.log("========== AFTER RENAME ==========");
-console.log("Old exists:", fs.existsSync(oldPath));
-console.log("New exists:", fs.existsSync(newPath));
-console.log("Files:", fs.readdirSync(thumbnailDir));
+                console.log("Old thumbnail removed.");
 
+            }
 
-await db.query(
-    `UPDATE videos
-     SET thumbnail = ?
-     WHERE video_name = ?`,
-    [
-        newFileName,
-        "Video" + slot
-    ]
-);
+            await fs.promises.rename(
+                oldPath,
+                newPath
+            );
 
-return res.json({
-    success: true,
-    message: "Thumbnail Uploaded Successfully",
-    thumbnail: newFileName
-});
+            console.log("Rename completed.");
+
+            console.log(
+                "Exists:",
+                fs.existsSync(newPath)
+            );
+
+            const [result] = await db.query(
+
+                `
+                UPDATE videos
+                SET thumbnail = ?
+                WHERE video_name = ?
+                `,
+
+                [
+                    newFileName,
+                    Video${slot}
+                ]
+
+            );
+
+            console.log("DB Result:", result);
+
+            if (result.affectedRows === 0) {
+
+                console.log("⚠️ No video updated.");
+
+            }
+
+            return res.json({
+
+                success: true,
+                message: "Thumbnail uploaded successfully.",
+
+                thumbnail: newFileName,
+
+                url:
+                    https://lightgreen-cheetah-775075.hostingersite.com/thumbnails/${newFileName}
+
+            });
 
         }
         catch (err) {
 
-            console.log(err);
+            console.error(err);
 
-            res.status(500).json({
+            return res.status(500).json({
+
                 success: false,
                 message: err.message
+
             });
 
         }
 
     }
 );
-
 
 
 /* =====================================================
