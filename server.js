@@ -1681,6 +1681,7 @@ app.get("/get-links", async (req, res) => {
 
 
 // Upload Thumbnail
+
 app.post(
     "/upload-thumbnail",
     uploadThumbnail.single("thumbnail"),
@@ -1690,48 +1691,42 @@ app.post(
 
             console.log("========== Thumbnail Upload ==========");
 
-            console.log("Body:", req.body);
-            console.log("File:", req.file);
-
             if (!req.file) {
-
                 return res.status(400).json({
                     success: false,
                     message: "No thumbnail uploaded."
                 });
-
             }
 
-            const slot = req.body.slot_number;
+            const slot = parseInt(req.body.slot_number);
 
-            if (!slot) {
-
+            if (!slot || slot <= 0) {
                 return res.status(400).json({
                     success: false,
-                    message: "slot_number is missing."
+                    message: "Invalid slot_number."
                 });
-
             }
 
-            const extension =
-                path.extname(req.file.originalname);
+            const extension = path.extname(req.file.originalname).toLowerCase();
 
-            const newFileName = "thumb_" + slot + extension;
+            const newFileName = `thumb_${slot}${extension}`;
 
             const oldPath = req.file.path;
 
-            const newPath =
-                path.join(thumbnailDir, newFileName);
+            const newPath = path.join(
+                thumbnailDir,
+                newFileName
+            );
 
-            console.log("Old Path:", oldPath);
-            console.log("New Path:", newPath);
+            console.log("Old Path :", oldPath);
+            console.log("New Path :", newPath);
 
-            // Delete existing thumbnail if present
+            // Delete existing thumbnail
             if (fs.existsSync(newPath)) {
 
                 fs.unlinkSync(newPath);
 
-                console.log("Old thumbnail removed.");
+                console.log("Existing thumbnail replaced.");
 
             }
 
@@ -1740,44 +1735,52 @@ app.post(
                 newPath
             );
 
-            console.log("Rename completed.");
+            const thumbnailURL =
+                `https://lightgreen-cheetah-775075.hostingersite.com/thumbnails/${newFileName}`;
 
-            console.log(
-                "Exists:",
-                fs.existsSync(newPath)
-            );
-
-            const [result] = await db.query(
+            // Save to thumbnails table
+            await db.query(
 
                 `
-                UPDATE videos
-                SET thumbnail = ?
-                WHERE video_name = ?
+                INSERT INTO thumbnails
+                (
+                    slot_number,
+                    thumbnail_name,
+                    thumbnail_url
+                )
+                VALUES
+                (
+                    ?, ?, ?
+                )
+
+                ON DUPLICATE KEY UPDATE
+
+                    thumbnail_name = VALUES(thumbnail_name),
+                    thumbnail_url = VALUES(thumbnail_url),
+                    updated_at = CURRENT_TIMESTAMP
                 `,
 
                 [
+                    slot,
                     newFileName,
-                   "Video" + slot
+                    thumbnailURL
                 ]
 
             );
 
-            console.log("DB Result:", result);
-
-            if (result.affectedRows === 0) {
-
-                console.log("⚠️ No video updated.");
-
-            }
+            console.log("Thumbnail saved successfully.");
 
             return res.json({
 
                 success: true,
+
                 message: "Thumbnail uploaded successfully.",
 
-                thumbnail: newFileName,
+                slot_number: slot,
 
-                url: "https://lightgreen-cheetah-775075.hostingersite.com/thumbnails/" + newFileName
+                thumbnail_name: newFileName,
+
+                thumbnail_url: thumbnailURL
 
             });
 
@@ -1789,6 +1792,7 @@ app.post(
             return res.status(500).json({
 
                 success: false,
+
                 message: err.message
 
             });
@@ -1797,6 +1801,51 @@ app.post(
 
     }
 );
+
+
+//get thumbnail
+
+app.get("/get-thumbnails", async (req, res) => {
+
+    try {
+
+        const [rows] = await db.query(
+
+            `
+            SELECT
+                slot_number,
+                thumbnail_name,
+                thumbnail_url
+            FROM thumbnails
+            ORDER BY slot_number ASC
+            `
+
+        );
+
+        res.json({
+
+            success: true,
+
+            thumbnails: rows
+
+        });
+
+    }
+    catch (err) {
+
+        console.error(err);
+
+        res.status(500).json({
+
+            success: false,
+
+            message: err.message
+
+        });
+
+    }
+
+});
 
 
 /* =====================================================
@@ -1843,7 +1892,7 @@ app.use((err, req, res, next) => {
 
             return res.status(400).json({
                 success: false,
-                message: "3D model size must not exceed 4 MB."
+                message: " 3D modelsize must not exceed 4 MB."
             });
         }
     }
