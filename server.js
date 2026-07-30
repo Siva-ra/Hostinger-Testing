@@ -11,9 +11,6 @@ require("dotenv").config();
 
 const app = express();
 
-
-
-
 /* ===== MIDDLEWARE ===== */
 app.use(cors({
     origin: "*",
@@ -178,8 +175,6 @@ const documentUpload = multer({
     }
   }
 });
-
-
 
 /* ===== OTP FUNCTION ===== */
 function generateOTP() {
