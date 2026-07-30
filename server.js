@@ -11,12 +11,6 @@ require("dotenv").config();
 
 const app = express();
 
-const thumbnailDir = path.join(__dirname, "../public_html/thumbnails");
-
-console.log("==================================");
-console.log("Thumbnail Directory:", thumbnailDir);
-console.log("__dirname:", __dirname);
-console.log("==================================");
 
 
 
@@ -31,83 +25,7 @@ app.use(cors({
 app.use(express.json());
 app.use("/uploads", express.static("uploads"));
 
-//Thumbnail
-//app.use("/thumbnails", (req, res, next) => {
- //   res.setHeader("Access-Control-Allow-Origin", "*");
-   // res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
-   // res.setHeader("Access-Control-Allow-Headers", "*");
-//    next();
-//});
 
-//app.use("/thumbnails", express.static(thumbnailDir, {
- //   setHeaders: (res) => {
-   //     res.setHeader("Access-Control-Allow-Origin", "*");
-     //   res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
-     //  res.setHeader("Access-Control-Allow-Headers", "*");
-  //  }
-//}));
-
-
-// Create folder if it doesn't exist
-if (!fs.existsSync(thumbnailDir)) {
-    fs.mkdirSync(thumbnailDir, { recursive: true });
-    console.log("✅ Created thumbnails folder");
-}
-
-// Serve thumbnails
-app.use(
-    "/thumbnails",
-    express.static(thumbnailDir, {
-        setHeaders: (res) => {
-            res.setHeader("Access-Control-Allow-Origin", "*");
-            res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");
-            res.setHeader("Cache-Control", "no-store");
-        }
-    })
-);
-
-// Debug endpoint
-app.get("/debug", (req, res) => {
-
-    let files = [];
-
-    if (fs.existsSync(thumbnailDir)) {
-
-        files = fs.readdirSync(thumbnailDir).map(file => ({
-            name: file,
-            size: fs.statSync(path.join(thumbnailDir, file)).size
-        }));
-
-    }
-
-    res.json({
-        folder: thumbnailDir,
-        exists: fs.existsSync(thumbnailDir),
-        totalFiles: files.length,
-        files
-    });
-
-});
-
-// Test thumbnail
-app.get("/test-thumb", (req, res) => {
-
-    const file = path.join(thumbnailDir, "thumb_1.png");
-
-    console.log("Testing:", file);
-
-    if (!fs.existsSync(file)) {
-        return res.status(404).send("thumb_1.png not found");
-    }
-
-    res.sendFile(file);
-
-});
-// TEMPORARY TEST ROUTE
-//app.get("/thumbnails/test.txt", (req, res) => {
-  //  res.setHeader("Access-Control-Allow-Origin", "*");
-//    res.send("Hello from Express");
-//});
 
 
 /* ===== DATABASE ===== */
@@ -261,56 +179,6 @@ const documentUpload = multer({
   }
 });
 
-
-// Multer Storage
-const thumbnailStorage = multer.diskStorage({
-
-    destination(req, file, cb) {
-
-        cb(null, thumbnailDir);
-
-    },
-
-    filename(req, file, cb) {
-
-        cb(
-            null,
-            Date.now() + path.extname(file.originalname)
-        );
-
-    }
-
-});
-
-const uploadThumbnail = multer({
-
-    storage: thumbnailStorage,
-
-    limits: {
-
-        fileSize: 2 * 1024 * 1024
-
-    },
-
-    fileFilter(req, file, cb) {
-
-        const allowed = [
-            "image/jpeg",
-            "image/jpg",
-            "image/png",
-            "image/webp"
-        ];
-
-        if (allowed.includes(file.mimetype)) {
-            cb(null, true);
-        }
-        else {
-            cb(new Error("Only JPG, JPEG, PNG and WEBP images are allowed."));
-        }
-
-    }
-
-});
 
 
 /* ===== OTP FUNCTION ===== */
@@ -1678,125 +1546,6 @@ app.get("/get-links", async (req, res) => {
 
   }
 });
-
-
-// Upload Thumbnail
-app.post(
-    "/upload-thumbnail",
-    uploadThumbnail.single("thumbnail"),
-    async (req, res) => {
-
-        try {
-
-            console.log("========== Thumbnail Upload ==========");
-
-            console.log("Body:", req.body);
-            console.log("File:", req.file);
-
-            if (!req.file) {
-
-                return res.status(400).json({
-                    success: false,
-                    message: "No thumbnail uploaded."
-                });
-
-            }
-
-            const slot = req.body.slot_number;
-
-            if (!slot) {
-
-                return res.status(400).json({
-                    success: false,
-                    message: "slot_number is missing."
-                });
-
-            }
-
-            const extension =
-                path.extname(req.file.originalname);
-
-            const newFileName = "thumb_" + slot + extension;
-
-            const oldPath = req.file.path;
-
-            const newPath =
-                path.join(thumbnailDir, newFileName);
-
-            console.log("Old Path:", oldPath);
-            console.log("New Path:", newPath);
-
-            // Delete existing thumbnail if present
-            if (fs.existsSync(newPath)) {
-
-                fs.unlinkSync(newPath);
-
-                console.log("Old thumbnail removed.");
-
-            }
-
-            await fs.promises.rename(
-                oldPath,
-                newPath
-            );
-
-            console.log("Rename completed.");
-
-            console.log(
-                "Exists:",
-                fs.existsSync(newPath)
-            );
-
-            const [result] = await db.query(
-
-                `
-                UPDATE videos
-                SET thumbnail = ?
-                WHERE video_name = ?
-                `,
-
-                [
-                    newFileName,
-                   "Video" + slot
-                ]
-
-            );
-
-            console.log("DB Result:", result);
-
-            if (result.affectedRows === 0) {
-
-                console.log("⚠️ No video updated.");
-
-            }
-
-            return res.json({
-
-                success: true,
-                message: "Thumbnail uploaded successfully.",
-
-                thumbnail: newFileName,
-
-                url: "https://lightgreen-cheetah-775075.hostingersite.com/thumbnails/" + newFileName
-
-            });
-
-        }
-        catch (err) {
-
-            console.error(err);
-
-            return res.status(500).json({
-
-                success: false,
-                message: err.message
-
-            });
-
-        }
-
-    }
-);
 
 
 /* =====================================================
