@@ -20,8 +20,8 @@ app.use(cors({
 
 
 app.use(express.json());
-app.use("/uploads", express.static("uploads"));
-
+//app.use("/uploads", express.static("uploads"));
+app.use("/uploads", express.static(uploadFolder));
 
 
 
@@ -60,19 +60,24 @@ const transporter = nodemailer.createTransport({
 const ADMIN_EMAIL = "experience@effeverse.com";
 
 /* ================= UPLOAD FOLDER ================= */
+const uploadFolder =
+  "/home/u419061541/domains/lightgreen-cheetah-775075.hostingersite.com/public_html/uploads";
 
-const uploadFolder = path.join(
-    __dirname,
-    "../public_html/uploads"
-);
+console.log("Upload Folder:", uploadFolder);
 
 if (!fs.existsSync(uploadFolder)) {
-    fs.mkdirSync(uploadFolder, {
-        recursive: true
-    });
+    fs.mkdirSync(uploadFolder, { recursive: true });
+    console.log("Created uploads folder");
 }
 
+console.log("Upload folder exists:", fs.existsSync(uploadFolder));
 
+try {
+    fs.accessSync(uploadFolder, fs.constants.W_OK);
+    console.log("Upload folder is writable");
+} catch (e) {
+    console.error("Upload folder is NOT writable:", e.message);
+}
 /* ================= MULTER ================= */
 
 const storage = multer.diskStorage({
