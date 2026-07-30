@@ -1681,7 +1681,6 @@ app.get("/get-links", async (req, res) => {
 
 
 // Upload Thumbnail
-
 app.post(
     "/upload-thumbnail",
     uploadThumbnail.single("thumbnail"),
@@ -1691,42 +1690,48 @@ app.post(
 
             console.log("========== Thumbnail Upload ==========");
 
+            console.log("Body:", req.body);
+            console.log("File:", req.file);
+
             if (!req.file) {
+
                 return res.status(400).json({
                     success: false,
                     message: "No thumbnail uploaded."
                 });
+
             }
 
-            const slot = parseInt(req.body.slot_number);
+            const slot = req.body.slot_number;
 
-            if (!slot || slot <= 0) {
+            if (!slot) {
+
                 return res.status(400).json({
                     success: false,
-                    message: "Invalid slot_number."
+                    message: "slot_number is missing."
                 });
+
             }
 
-            const extension = path.extname(req.file.originalname).toLowerCase();
+            const extension =
+                path.extname(req.file.originalname);
 
-            const newFileName = `thumb_${slot}${extension}`;
+            const newFileName = "thumb_" + slot + extension;
 
             const oldPath = req.file.path;
 
-            const newPath = path.join(
-                thumbnailDir,
-                newFileName
-            );
+            const newPath =
+                path.join(thumbnailDir, newFileName);
 
-            console.log("Old Path :", oldPath);
-            console.log("New Path :", newPath);
+            console.log("Old Path:", oldPath);
+            console.log("New Path:", newPath);
 
-            // Delete existing thumbnail
+            // Delete existing thumbnail if present
             if (fs.existsSync(newPath)) {
 
                 fs.unlinkSync(newPath);
 
-                console.log("Existing thumbnail replaced.");
+                console.log("Old thumbnail removed.");
 
             }
 
@@ -1735,52 +1740,44 @@ app.post(
                 newPath
             );
 
-            const thumbnailURL =
-                `https://lightgreen-cheetah-775075.hostingersite.com/thumbnails/${newFileName}`;
+            console.log("Rename completed.");
 
-            // Save to thumbnails table
-            await db.query(
+            console.log(
+                "Exists:",
+                fs.existsSync(newPath)
+            );
+
+            const [result] = await db.query(
 
                 `
-                INSERT INTO thumbnails
-                (
-                    slot_number,
-                    thumbnail_name,
-                    thumbnail_url
-                )
-                VALUES
-                (
-                    ?, ?, ?
-                )
-
-                ON DUPLICATE KEY UPDATE
-
-                    thumbnail_name = VALUES(thumbnail_name),
-                    thumbnail_url = VALUES(thumbnail_url),
-                    updated_at = CURRENT_TIMESTAMP
+                UPDATE videos
+                SET thumbnail = ?
+                WHERE video_name = ?
                 `,
 
                 [
-                    slot,
                     newFileName,
-                    thumbnailURL
+                   "Video" + slot
                 ]
 
             );
 
-            console.log("Thumbnail saved successfully.");
+            console.log("DB Result:", result);
+
+            if (result.affectedRows === 0) {
+
+                console.log("⚠️ No video updated.");
+
+            }
 
             return res.json({
 
                 success: true,
-
                 message: "Thumbnail uploaded successfully.",
 
-                slot_number: slot,
+                thumbnail: newFileName,
 
-                thumbnail_name: newFileName,
-
-                thumbnail_url: thumbnailURL
+                url: "https://lightgreen-cheetah-775075.hostingersite.com/thumbnails/" + newFileName
 
             });
 
@@ -1792,7 +1789,6 @@ app.post(
             return res.status(500).json({
 
                 success: false,
-
                 message: err.message
 
             });
@@ -1801,51 +1797,6 @@ app.post(
 
     }
 );
-
-
-//get thumbnail
-
-app.get("/get-thumbnails", async (req, res) => {
-
-    try {
-
-        const [rows] = await db.query(
-
-            `
-            SELECT
-                slot_number,
-                thumbnail_name,
-                thumbnail_url
-            FROM thumbnails
-            ORDER BY slot_number ASC
-            `
-
-        );
-
-        res.json({
-
-            success: true,
-
-            thumbnails: rows
-
-        });
-
-    }
-    catch (err) {
-
-        console.error(err);
-
-        res.status(500).json({
-
-            success: false,
-
-            message: err.message
-
-        });
-
-    }
-
-});
 
 
 /* =====================================================
