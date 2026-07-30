@@ -11,46 +11,16 @@ require("dotenv").config();
 
 const app = express();
 
-/*const thumbnailDir = path.join(__dirname, "../public_html/thumbnails");
+const thumbnailDir = path.join(__dirname, "../public_html/thumbnails");
 
 console.log("==================================");
 console.log("Thumbnail Directory:", thumbnailDir);
 console.log("__dirname:", __dirname);
 console.log("==================================");
-*/
+
 
 
 /* ===== MIDDLEWARE ===== */
-
-
-/*app.use(cors({
-    origin: "*",
-    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization"]
-}));
-
-// Allow JSON requests up to 15 MB
-app.use(express.json({
-    limit: "15mb"
-}));
-
-// Optional (if using URL encoded forms)
-app.use(express.urlencoded({
-    extended: true,
-    limit: "15mb"
-}));
-
-// Serve uploaded files
-app.use(
-    "/uploads",
-    express.static(
-        path.join(__dirname, "uploads")
-    )
-);*/
-
-
-
-
 app.use(cors({
     origin: "*",
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
@@ -60,14 +30,6 @@ app.use(cors({
 
 app.use(express.json());
 app.use("/uploads", express.static("uploads"));
-
-
-app.use(
-    express.json({
-        limit: "15mb"
-    })
-);
-
 
 //Thumbnail
 //app.use("/thumbnails", (req, res, next) => {
@@ -87,7 +49,7 @@ app.use(
 
 
 // Create folder if it doesn't exist
-/*if (!fs.existsSync(thumbnailDir)) {
+if (!fs.existsSync(thumbnailDir)) {
     fs.mkdirSync(thumbnailDir, { recursive: true });
     console.log("✅ Created thumbnails folder");
 }
@@ -146,7 +108,7 @@ app.get("/test-thumb", (req, res) => {
   //  res.setHeader("Access-Control-Allow-Origin", "*");
 //    res.send("Hello from Express");
 //});
-*/
+
 
 /* ===== DATABASE ===== */
 const db = mysql.createPool({
@@ -1720,7 +1682,7 @@ app.get("/get-links", async (req, res) => {
 
 // Upload Thumbnail
 
-/*app.post(
+app.post(
     "/upload-thumbnail",
     uploadThumbnail.single("thumbnail"),
     async (req, res) => {
@@ -1883,278 +1845,7 @@ app.get("/get-thumbnails", async (req, res) => {
 
     }
 
-});*/
-
-/* =====================================================
-   IMAGE UPLOAD
-//* =====================================================
-  /* =====================================================
-   IMAGE UPLOAD
-===================================================== */
-
-app.post("/upload-image/:slot", async (req, res) => {
-
-    try {
-
-        const slot = parseInt(req.params.slot, 10);
-
-        if (isNaN(slot) || slot < 1 || slot > 5) {
-            return res.status(400).json({
-                success: false,
-                message: "Invalid slot. Use 1 to 5."
-            });
-        }
-
-        const { image, fileName } = req.body;
-
-        if (!image || !fileName) {
-            return res.status(400).json({
-                success: false,
-                message: "Image or file name missing."
-            });
-        }
-
-        // ==========================================
-        // UPLOAD FOLDER
-        // ==========================================
-
-        const uploadDirectory =
-            path.join(__dirname, "uploads","images");
-
-        await fs.promises.mkdir(
-            uploadDirectory,
-            { recursive: true }
-        );
-
-        // ==========================================
-        // REMOVE BASE64 PREFIX
-        // ==========================================
-
-        const cleanBase64 =
-            image.includes(",")
-                ? image.split(",")[1]
-                : image;
-
-        // ==========================================
-        // FILE EXTENSION
-        // ==========================================
-
-        let extension =
-            path.extname(fileName).toLowerCase();
-
-        if (
-            extension !== ".jpg" &&
-            extension !== ".jpeg" &&
-            extension !== ".png" &&
-            extension !== ".webp"
-        ) {
-            extension = ".jpg";
-        }
-
-        // ==========================================
-        // CREATE FILE NAME
-        // ==========================================
-
-        const savedFileName =
-            `slot_${slot}_${Date.now()}${extension}`;
-
-        const filePath =
-            path.join(
-                uploadDirectory,
-                savedFileName
-            );
-
-        // ==========================================
-        // SAVE IMAGE FILE
-        // ==========================================
-
-        const imageBuffer =
-            Buffer.from(
-                cleanBase64,
-                "base64"
-            );
-
-        await fs.promises.writeFile(
-            filePath,
-            imageBuffer
-        );
-
-        // ==========================================
-        // IMAGE URL
-        // ==========================================
-
-        const imageUrl =
-            `http://localhost:3000/uploads/images/${savedFileName}`;
-
-        // ==========================================
-        // CHECK EXISTING SLOT
-        // IMPORTANT: image_id, NOT id
-        // ==========================================
-
-        const [existingRows] =
-            await db.promise().query(
-                `
-                SELECT image_id
-                FROM image_slots
-                WHERE slot_number = ?
-                `,
-                [slot]
-            );
-
-        // ==========================================
-        // UPDATE EXISTING SLOT
-        // ==========================================
-
-        if (existingRows.length > 0) {
-
-            await db.promise().query(
-                `
-                UPDATE image_slots
-                SET
-                    file_name = ?,
-                    file_path = ?,
-                    uploaded_at = CURRENT_TIMESTAMP
-                WHERE slot_number = ?
-                `,
-                [
-                    savedFileName,
-                    imageUrl,
-                    slot
-                ]
-            );
-
-            console.log(
-                `Slot ${slot} image updated`
-            );
-
-        }
-
-        // ==========================================
-        // INSERT NEW SLOT
-        // ==========================================
-
-        else {
-
-            await db.promise().query(
-                `
-                INSERT INTO image_slots
-                (
-                    slot_number,
-                    file_name,
-                    file_path
-                )
-                VALUES (?, ?, ?)
-                `,
-                [
-                    slot,
-                    savedFileName,
-                    imageUrl
-                ]
-            );
-
-            console.log(
-                `Slot ${slot} image inserted`
-            );
-        }
-
-        // ==========================================
-        // SUCCESS
-        // ==========================================
-
-        res.json({
-
-            success: true,
-
-            message:
-                `Slot ${slot} image uploaded successfully`,
-
-            slot: slot,
-
-            fileName:
-                savedFileName,
-
-            imageUrl:
-                imageUrl
-
-        });
-
-    }
-    catch (err) {
-
-        console.error(
-            "IMAGE UPLOAD ERROR:",
-            err
-        );
-
-        res.status(500).json({
-
-            success: false,
-
-            message:
-                "Image upload failed",
-
-            error:
-                err.message
-
-        });
-
-    }
-
 });
-/* =====================================================
-   GET SAVED IMAGES
-===================================================== */
-/* =====================================================
-   GET SAVED IMAGES
-===================================================== */
-/* =====================================================
-   GET SAVED IMAGES
-===================================================== */
-
-app.get("/get-images", async (req, res) => {
-
-    try {
-
-        const [rows] =
-            await db.promise().query(
-                `
-                SELECT
-                    image_id,
-                    slot_number,
-                    file_name,
-                    file_path
-                FROM image_slots
-                ORDER BY slot_number ASC
-                `
-            );
-
-        res.json({
-            success: true,
-            images: rows
-        });
-
-    }
-    catch (err) {
-
-        console.error(
-            "GET IMAGES ERROR:",
-            err
-        );
-
-        res.status(500).json({
-
-            success: false,
-
-            message:
-                "Failed to fetch images"
-
-        });
-
-    }
-
-});
-
-
 
 
 /* =====================================================
