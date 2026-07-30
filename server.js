@@ -11,7 +11,7 @@ require("dotenv").config();
 
 const app = express();
 
-const thumbnailDir = path.join(__dirname, "../public_html/thumbnails");
+const thumbnailDir = "/home/u419061541/domains/lightgreen-cheetah-775075.hostingersite.com/public_html/thumbnails";
 
 console.log("==================================");
 console.log("Thumbnail Directory:", thumbnailDir);
@@ -29,8 +29,8 @@ app.use(cors({
 
 
 app.use(express.json());
-app.use("/uploads", express.static("uploads"));
-
+//app.use("/uploads", express.static("uploads"));
+app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 //Thumbnail
 //app.use("/thumbnails", (req, res, next) => {
  //   res.setHeader("Access-Control-Allow-Origin", "*");
@@ -65,6 +65,8 @@ app.use(
         }
     })
 );
+
+console.log("Serving thumbnails from:", thumbnailDir);
 
 // Debug endpoint
 app.get("/debug", (req, res) => {
@@ -263,37 +265,34 @@ const documentUpload = multer({
 
 
 // Multer Storage
+const thumbnailDir =
+    process.env.THUMBNAIL_DIR ||
+    "/home/u419061541/domains/lightgreen-cheetah-775075.hostingersite.com/public_html/thumbnails";
+
+if (!fs.existsSync(thumbnailDir)) {
+    fs.mkdirSync(thumbnailDir, { recursive: true });
+    console.log("✅ Created thumbnails directory:", thumbnailDir);
+}
+
 const thumbnailStorage = multer.diskStorage({
-
-    destination(req, file, cb) {
-
+    destination: (req, file, cb) => {
+        console.log("Saving thumbnail to:", thumbnailDir);
         cb(null, thumbnailDir);
-
     },
 
-    filename(req, file, cb) {
-
-        cb(
-            null,
-            Date.now() + path.extname(file.originalname)
-        );
-
+    filename: (req, file, cb) => {
+        const filename = `${Date.now()}${path.extname(file.originalname)}`;
+        console.log("Thumbnail filename:", filename);
+        cb(null, filename);
     }
-
 });
 
 const uploadThumbnail = multer({
-
     storage: thumbnailStorage,
-
     limits: {
-
-        fileSize: 2 * 1024 * 1024
-
+        fileSize: 2 * 1024 * 1024 // 2MB
     },
-
-    fileFilter(req, file, cb) {
-
+    fileFilter: (req, file, cb) => {
         const allowed = [
             "image/jpeg",
             "image/jpg",
@@ -303,13 +302,10 @@ const uploadThumbnail = multer({
 
         if (allowed.includes(file.mimetype)) {
             cb(null, true);
-        }
-        else {
+        } else {
             cb(new Error("Only JPG, JPEG, PNG and WEBP images are allowed."));
         }
-
     }
-
 });
 
 
