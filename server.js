@@ -11,15 +11,6 @@ require("dotenv").config();
 
 const app = express();
 
-const thumbnailDir = path.join(__dirname, "../public_html/thumbnails");
-
-console.log("==================================");
-console.log("Thumbnail Directory:", thumbnailDir);
-console.log("__dirname:", __dirname);
-console.log("==================================");
-
-
-
 /* ===== MIDDLEWARE ===== */
 app.use(cors({
     origin: "*",
@@ -29,85 +20,24 @@ app.use(cors({
 
 
 app.use(express.json());
-app.use("/uploads", express.static("uploads"));
+/* ====================== UPLOADS STATIC FOLDER FOR 3D MODEL ====================== */
 
-//Thumbnail
-//app.use("/thumbnails", (req, res, next) => {
- //   res.setHeader("Access-Control-Allow-Origin", "*");
-   // res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
-   // res.setHeader("Access-Control-Allow-Headers", "*");
-//    next();
-//});
-
-//app.use("/thumbnails", express.static(thumbnailDir, {
- //   setHeaders: (res) => {
-   //     res.setHeader("Access-Control-Allow-Origin", "*");
-     //   res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
-     //  res.setHeader("Access-Control-Allow-Headers", "*");
-  //  }
-//}));
-
-
-// Create folder if it doesn't exist
-if (!fs.existsSync(thumbnailDir)) {
-    fs.mkdirSync(thumbnailDir, { recursive: true });
-    console.log("✅ Created thumbnails folder");
+if (!fs.existsSync(uploadFolder)) {
+    fs.mkdirSync(uploadFolder, { recursive: true });
 }
 
-// Serve thumbnails
 app.use(
-    "/thumbnails",
-    express.static(thumbnailDir, {
-        setHeaders: (res) => {
-            res.setHeader("Access-Control-Allow-Origin", "*");
-            res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");
-            res.setHeader("Cache-Control", "no-store");
-        }
-    })
+    "/uploads",
+    (req, res, next) => {
+        res.header("Access-Control-Allow-Origin", "*");
+        res.header(
+            "Access-Control-Allow-Headers",
+            "Origin, X-Requested-With, Content-Type, Accept"
+        );
+        next();
+    },
+    express.static(uploadFolder)
 );
-
-// Debug endpoint
-app.get("/debug", (req, res) => {
-
-    let files = [];
-
-    if (fs.existsSync(thumbnailDir)) {
-
-        files = fs.readdirSync(thumbnailDir).map(file => ({
-            name: file,
-            size: fs.statSync(path.join(thumbnailDir, file)).size
-        }));
-
-    }
-
-    res.json({
-        folder: thumbnailDir,
-        exists: fs.existsSync(thumbnailDir),
-        totalFiles: files.length,
-        files
-    });
-
-});
-
-// Test thumbnail
-app.get("/test-thumb", (req, res) => {
-
-    const file = path.join(thumbnailDir, "thumb_1.png");
-
-    console.log("Testing:", file);
-
-    if (!fs.existsSync(file)) {
-        return res.status(404).send("thumb_1.png not found");
-    }
-
-    res.sendFile(file);
-
-});
-// TEMPORARY TEST ROUTE
-//app.get("/thumbnails/test.txt", (req, res) => {
-  //  res.setHeader("Access-Control-Allow-Origin", "*");
-//    res.send("Hello from Express");
-//});
 
 
 /* ===== DATABASE ===== */
@@ -144,91 +74,37 @@ const transporter = nodemailer.createTransport({
 /* ===== FIXED ADMIN EMAIL ===== */
 const ADMIN_EMAIL = "experience@effeverse.com";
 
-/* ================= UPLOAD FOLDER ================= */
-
-const uploadFolder = path.join(
-    __dirname,
-    "../public_html/uploads"
-);
-
-if (!fs.existsSync(uploadFolder)) {
-    fs.mkdirSync(uploadFolder, {
-        recursive: true
-    });
-}
-
-
-/* ================= MULTER ================= */
+/* ====================== MULTER CONFIGURATION FOR 3D MODEL ====================== */
 
 const storage = multer.diskStorage({
-
-    destination: function (req, file, cb) {
+    destination: (req, file, cb) => {
         cb(null, uploadFolder);
     },
 
-    filename: function (req, file, cb) {
-
-        const uniqueName =
-            Date.now() +
-            "_" +
-            file.originalname;
-
+    filename: (req, file, cb) => {
+        const uniqueName = `${Date.now()}_${file.originalname}`;
         cb(null, uniqueName);
     }
 });
 
 const upload = multer({
-
-    storage: storage,
+    storage,
 
     limits: {
-        fileSize: 4 * 1024 * 1024 // 4 MB
+        fileSize: 4 * 1024 * 1024
     },
 
-    fileFilter: function (req, file, cb) {
+    fileFilter: (req, file, cb) => {
 
-        const ext =
-            path.extname(file.originalname)
-            .toLowerCase();
+        const ext = path.extname(file.originalname).toLowerCase();
 
-        if (
-            ext === ".glb" ||
-            ext === ".gltf"
-        ) {
-            cb(null, true);
+        if (ext === ".glb" || ext === ".gltf") {
+            return cb(null, true);
         }
-        else {
 
-            cb(
-                new Error(
-                    "Only GLB or GLTF files are allowed."
-                )
-            );
-        }
+        cb(new Error("Only .glb and .gltf files are allowed."));
     }
 });
-
-/* ================= STATIC FILES ================= */
-
-app.use(
-    "/uploads",
-    (req,res,next)=>
-    {
-        res.header(
-            "Access-Control-Allow-Origin",
-            "*"
-        );
-
-        res.header(
-            "Access-Control-Allow-Headers",
-            "*"
-        );
-
-        next();
-    },
-    express.static(uploadFolder)
-);
-
 
 
 /* ===== DOCUMENT MULTER STORAGE ===== */
@@ -317,6 +193,204 @@ const uploadThumbnail = multer({
 function generateOTP() {
   return Math.floor(100000 + Math.random() * 900000).toString();
 }
+
+/* ====================== UPLOAD MODEL ====================== */
+
+app.post(
+    "/upload-model",
+    upload.single("model"),
+    async (req, res) => {
+
+        try {
+
+            const slotNumber = Number(req.body.slot_number);
+
+            if (isNaN(slotNumber)) {
+                return res.status(400).json({
+                    success: false,
+                    message: "Invalid slot number."
+                });
+            }
+
+            if (!req.file) {
+                return res.status(400).json({
+                    success: false,
+                    message: "Please upload a model."
+                });
+            }
+
+            const modelName = req.file.originalname;
+            const modelPath = `uploads/${req.file.filename}`;
+
+            const [rows] = await db.query(
+                "SELECT * FROM models WHERE slot_number=?",
+                [slotNumber]
+            );
+
+            if (rows.length > 0) {
+
+                const oldFile = path.join(
+                    uploadFolder,
+                    path.basename(rows[0].model_path)
+                );
+
+                if (fs.existsSync(oldFile)) {
+                    fs.unlinkSync(oldFile);
+                }
+
+                await db.query(
+                    `UPDATE models
+                     SET model_name=?,
+                         model_path=?
+                     WHERE slot_number=?`,
+                    [
+                        modelName,
+                        modelPath,
+                        slotNumber
+                    ]
+                );
+
+            } else {
+
+                await db.query(
+                    `INSERT INTO models
+                    (
+                        slot_number,
+                        model_name,
+                        model_path
+                    )
+                    VALUES (?, ?, ?)`,
+                    [
+                        slotNumber,
+                        modelName,
+                        modelPath
+                    ]
+                );
+            }
+
+            res.json({
+                success: true,
+                message: "Model uploaded successfully.",
+                slot_number: slotNumber,
+                model_name: modelName,
+                model_path: modelPath
+            });
+
+        } catch (err) {
+
+            console.error("UPLOAD MODEL ERROR:", err);
+
+            res.status(500).json({
+                success: false,
+                message: err.message
+            });
+        }
+    }
+);
+
+/* ====================== GET MODELS ====================== */
+
+app.get("/get-models", async (req, res) => {
+
+    try {
+
+        const [rows] = await db.query(
+            "SELECT * FROM models ORDER BY slot_number ASC"
+        );
+
+        res.json(rows);
+
+    } catch (err) {
+
+        console.error("GET MODELS ERROR:", err);
+
+        res.status(500).json({
+            success: false,
+            message: err.message
+        });
+    }
+});
+
+/* ====================== DELETE MODEL ====================== */
+
+app.delete("/delete-model/:slot", async (req, res) => {
+
+    try {
+
+        const slot = Number(req.params.slot);
+
+        if (isNaN(slot)) {
+            return res.status(400).json({
+                success: false,
+                message: "Invalid slot number."
+            });
+        }
+
+        const [rows] = await db.query(
+            "SELECT * FROM models WHERE slot_number=?",
+            [slot]
+        );
+
+        if (rows.length === 0) {
+            return res.status(404).json({
+                success: false,
+                message: "Model not found."
+            });
+        }
+
+        const filePath = path.join(
+            uploadFolder,
+            path.basename(rows[0].model_path)
+        );
+
+        if (fs.existsSync(filePath)) {
+            fs.unlinkSync(filePath);
+        }
+
+        await db.query(
+            "DELETE FROM models WHERE slot_number=?",
+            [slot]
+        );
+
+        res.json({
+            success: true,
+            message: "Model deleted successfully."
+        });
+
+    } catch (err) {
+
+        console.error("DELETE MODEL ERROR:", err);
+
+        res.status(500).json({
+            success: false,
+            message: err.message
+        });
+    }
+});
+
+/* ====================== MULTER ERROR HANDLER ====================== */
+
+app.use((err, req, res, next) => {
+
+    if (err instanceof multer.MulterError) {
+
+        if (err.code === "LIMIT_FILE_SIZE") {
+            return res.status(400).json({
+                success: false,
+                message: "3D model size must not exceed 4 MB."
+            });
+        }
+    }
+
+    if (err) {
+        return res.status(400).json({
+            success: false,
+            message: err.message
+        });
+    }
+
+    next();
+});
 
 
 /* ================= SIGNUP ================= */
@@ -764,216 +838,7 @@ message:err.message
 }
 });
 
-/* ================= UPLOAD MODEL ================= */
 
-app.post(
-    "/upload-model",
-    upload.single("model"),
-    async (req, res) => {
-
-        try {
-
-            const slot_number =
-                parseInt(req.body.slot_number);
-
-            if (isNaN(slot_number)) {
-
-                return res.status(400).json({
-                    success: false,
-                    message: "Invalid slot number."
-                });
-            }
-
-            if (!req.file) {
-
-                return res.status(400).json({
-                    success: false,
-                    message: "No file uploaded."
-                });
-            }
-
-            const modelName =
-                req.file.originalname;
-
-            const modelPath =
-                "uploads/" + req.file.filename;
-
-            const [rows] =
-                await db.query(
-                    "SELECT * FROM models WHERE slot_number = ?",
-                    [slot_number]
-                );
-
-            if (rows.length > 0) {
-
-                const oldFile =
-                    path.join(
-                        uploadFolder,
-                        path.basename(
-                            rows[0].model_path
-                        )
-                    );
-
-                console.log(
-                    "Deleting old file:",
-                    oldFile
-                );
-
-                if (fs.existsSync(oldFile)) {
-                    fs.unlinkSync(oldFile);
-                }
-
-                await db.query(
-                    `UPDATE models
-                     SET model_name = ?,
-                         model_path = ?
-                     WHERE slot_number = ?`,
-                    [
-                        modelName,
-                        modelPath,
-                        slot_number
-                    ]
-                );
-
-            } else {
-
-                await db.query(
-                    `INSERT INTO models
-                    (
-                        slot_number,
-                        model_name,
-                        model_path
-                    )
-                    VALUES (?, ?, ?)`,
-                    [
-                        slot_number,
-                        modelName,
-                        modelPath
-                    ]
-                );
-            }
-
-            res.json({
-                success: true,
-                message: "Model uploaded successfully.",
-                slot_number: slot_number,
-                model_name: modelName,
-                model_path: modelPath
-            });
-
-        }
-        catch (err) {
-
-            console.error("UPLOAD MODEL ERROR:", err);
-
-            res.status(500).json({
-                success: false,
-                message: err.message
-            });
-        }
-    }
-);
-
-/* ================= GET MODELS ================= */
-
-app.get(
-    "/get-models",
-    async (req, res) => {
-
-        try {
-
-            const [rows] =
-                await db.query(
-                    "SELECT * FROM models ORDER BY slot_number"
-                );
-
-            res.json(rows);
-
-        }
-        catch (err) {
-
-            console.error("GET MODELS ERROR:", err);
-
-            res.status(500).json({
-                success: false,
-                message: err.message
-            });
-        }
-    }
-);
-
-/* ================= DELETE MODEL ================= */
-
-app.delete(
-    "/delete-model/:slot",
-    async (req, res) => {
-
-        try {
-
-            const slot =
-                parseInt(req.params.slot);
-
-            if (isNaN(slot)) {
-
-                return res.status(400).json({
-                    success: false,
-                    message: "Invalid slot number."
-                });
-            }
-
-            const [rows] =
-                await db.query(
-                    "SELECT * FROM models WHERE slot_number = ?",
-                    [slot]
-                );
-
-            if (rows.length === 0) {
-
-                return res.status(404).json({
-                    success: false,
-                    message: "Model not found."
-                });
-            }
-
-            const fileToDelete =
-                path.join(
-                    uploadFolder,
-                    path.basename(
-                        rows[0].model_path
-                    )
-                );
-
-            console.log(
-                "Deleting file:",
-                fileToDelete
-            );
-
-            if (fs.existsSync(fileToDelete)) {
-                fs.unlinkSync(fileToDelete);
-            }
-
-            await db.query(
-                "DELETE FROM models WHERE slot_number = ?",
-                [slot]
-            );
-
-            res.json({
-                success: true,
-                message: "Model deleted successfully."
-            });
-
-        }
-        catch (err) {
-
-            console.error("DELETE MODEL ERROR:", err);
-
-            res.status(500).json({
-                success: false,
-                message: err.message
-            });
-        }
-    }
-);
 
 /* ================= PLAYER PROGRESS ================= */
 
@@ -1680,124 +1545,6 @@ app.get("/get-links", async (req, res) => {
 });
 
 
-// Upload Thumbnail
-app.post(
-    "/upload-thumbnail",
-    uploadThumbnail.single("thumbnail"),
-    async (req, res) => {
-
-        try {
-
-            console.log("========== Thumbnail Upload ==========");
-
-            console.log("Body:", req.body);
-            console.log("File:", req.file);
-
-            if (!req.file) {
-
-                return res.status(400).json({
-                    success: false,
-                    message: "No thumbnail uploaded."
-                });
-
-            }
-
-            const slot = req.body.slot_number;
-
-            if (!slot) {
-
-                return res.status(400).json({
-                    success: false,
-                    message: "slot_number is missing."
-                });
-
-            }
-
-            const extension =
-                path.extname(req.file.originalname);
-
-            const newFileName = "thumb_" + slot + extension;
-
-            const oldPath = req.file.path;
-
-            const newPath =
-                path.join(thumbnailDir, newFileName);
-
-            console.log("Old Path:", oldPath);
-            console.log("New Path:", newPath);
-
-            // Delete existing thumbnail if present
-            if (fs.existsSync(newPath)) {
-
-                fs.unlinkSync(newPath);
-
-                console.log("Old thumbnail removed.");
-
-            }
-
-            await fs.promises.rename(
-                oldPath,
-                newPath
-            );
-
-            console.log("Rename completed.");
-
-            console.log(
-                "Exists:",
-                fs.existsSync(newPath)
-            );
-
-            const [result] = await db.query(
-
-                `
-                UPDATE videos
-                SET thumbnail = ?
-                WHERE video_name = ?
-                `,
-
-                [
-                    newFileName,
-                   "Video" + slot
-                ]
-
-            );
-
-            console.log("DB Result:", result);
-
-            if (result.affectedRows === 0) {
-
-                console.log("⚠️ No video updated.");
-
-            }
-
-            return res.json({
-
-                success: true,
-                message: "Thumbnail uploaded successfully.",
-
-                thumbnail: newFileName,
-
-                url: "https://lightgreen-cheetah-775075.hostingersite.com/thumbnails/" + newFileName
-
-            });
-
-        }
-        catch (err) {
-
-            console.error(err);
-
-            return res.status(500).json({
-
-                success: false,
-                message: err.message
-
-            });
-
-        }
-
-    }
-);
-
 
 /* =====================================================
    FORGOT PASSWORD ROUTES
@@ -1826,40 +1573,6 @@ setInterval(async () => {
     WHERE expires_at < NOW()
   `);
 }, 60000);
-
-
-
-/* ================= UPLOAD 3D ERROR HANDLER ================= */
-
-app.use((err, req, res, next) => {
-
-    console.log("========== UPLOAD ERROR ==========");
-
-    if (err instanceof multer.MulterError) {
-
-        console.log("Error Code:", err.code);
-
-        if (err.code === "LIMIT_FILE_SIZE") {
-
-            return res.status(400).json({
-                success: false,
-                message: " 3D modelsize must not exceed 4 MB."
-            });
-        }
-    }
-
-    if (err) {
-
-        console.log("Error:", err.message);
-
-        return res.status(400).json({
-            success: false,
-            message: err.message
-        });
-    }
-
-    next();
-});
 
 
 /* ===== SERVER ===== */
