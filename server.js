@@ -28,8 +28,15 @@ app.use(cors({
 app.use(express.json());
 /* ====================== UPLOADS STATIC FOLDER FOR 3D MODEL ====================== */
 
+console.log("__dirname =", __dirname);
+console.log("uploadFolder =", uploadFolder);
+
 if (!fs.existsSync(uploadFolder)) {
+    console.log("Creating upload folder...");
     fs.mkdirSync(uploadFolder, { recursive: true });
+    console.log("Upload folder created");
+} else {
+    console.log("Upload folder already exists");
 }
 
 app.use(
