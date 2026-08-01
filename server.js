@@ -12,9 +12,9 @@ require("dotenv").config();
 const app = express();
 
 // IMPORTANT: define uploadFolder first
-const uploadFolder = path.join(
+const uploadFolder = path.resolve(
     __dirname,
-    "../public_html/uploads"
+    "../../../../public_html/uploads"
 );
 
 /* ===== MIDDLEWARE ===== */
@@ -150,63 +150,12 @@ const documentUpload = multer({
 });
 
 
-// Multer Storage
-const thumbnailStorage = multer.diskStorage({
-
-    destination(req, file, cb) {
-
-        cb(null, thumbnailDir);
-
-    },
-
-    filename(req, file, cb) {
-
-        cb(
-            null,
-            Date.now() + path.extname(file.originalname)
-        );
-
-    }
-
-});
-
-const uploadThumbnail = multer({
-
-    storage: thumbnailStorage,
-
-    limits: {
-
-        fileSize: 2 * 1024 * 1024
-
-    },
-
-    fileFilter(req, file, cb) {
-
-        const allowed = [
-            "image/jpeg",
-            "image/jpg",
-            "image/png",
-            "image/webp"
-        ];
-
-        if (allowed.includes(file.mimetype)) {
-            cb(null, true);
-        }
-        else {
-            cb(new Error("Only JPG, JPEG, PNG and WEBP images are allowed."));
-        }
-
-    }
-
-});
-
-
 /* ===== OTP FUNCTION ===== */
 function generateOTP() {
   return Math.floor(100000 + Math.random() * 900000).toString();
 }
 
-/* ====================== UPLOAD MODEL ====================== */
+/* ====================== UPLOAD 3D MODEL ====================== */
 
 app.post(
     "/upload-model",
@@ -300,7 +249,7 @@ app.post(
     }
 );
 
-/* ====================== GET MODELS ====================== */
+/* ====================== GET 3D MODELS ====================== */
 
 app.get("/get-models", async (req, res) => {
 
@@ -323,7 +272,7 @@ app.get("/get-models", async (req, res) => {
     }
 });
 
-/* ====================== DELETE MODEL ====================== */
+/* ====================== DELETE 3D MODEL ====================== */
 
 app.delete("/delete-model/:slot", async (req, res) => {
 
@@ -380,7 +329,7 @@ app.delete("/delete-model/:slot", async (req, res) => {
     }
 });
 
-/* ====================== MULTER ERROR HANDLER ====================== */
+/* ====================== MULTER ERROR HANDLER  FOR 3D MODEL ====================== */
 
 app.use((err, req, res, next) => {
 
