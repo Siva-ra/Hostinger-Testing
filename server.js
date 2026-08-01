@@ -11,6 +11,12 @@ require("dotenv").config();
 
 const app = express();
 
+// IMPORTANT: define uploadFolder first
+const uploadFolder = path.join(
+    __dirname,
+    "../public_html/uploads"
+);
+
 /* ===== MIDDLEWARE ===== */
 app.use(cors({
     origin: "*",
@@ -75,7 +81,6 @@ const transporter = nodemailer.createTransport({
 const ADMIN_EMAIL = "experience@effeverse.com";
 
 /* ====================== MULTER CONFIGURATION FOR 3D MODEL ====================== */
-
 const storage = multer.diskStorage({
     destination: (req, file, cb) => {
         cb(null, uploadFolder);
