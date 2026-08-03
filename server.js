@@ -9,16 +9,16 @@ const path = require("path");
 const fs = require("fs");
 require("dotenv").config();
 
-function generateThumbnail(videoPath, thumbnailPath) {
+function generateThumbnail(videoPath, thumbPath) {
     return new Promise((resolve, reject) => {
-        const cmd = `ffmpeg -y -i "${videoPath}" -ss 00:00:01 -frames:v 1 "${thumbnailPath}"`;
+        const cmd = `ffmpeg -y -i "${videoPath}" -ss 00:00:01 -frames:v 1 "${thumbPath}"`;
 
         exec(cmd, (error, stdout, stderr) => {
             if (error) {
                 console.error("FFmpeg error:", stderr);
                 return reject(error);
             }
-            resolve(thumbnailPath);
+            resolve(thumbPath);
         });
     });
 }
@@ -119,19 +119,7 @@ const transporter = nodemailer.createTransport({
 /* ===== FIXED ADMIN EMAIL ===== */
 const ADMIN_EMAIL = "experience@effeverse.com";
 
-/* ===== THUMBNAIL MULTER FOR PACKAGE ===== */
-const videoPath = req.file.path;
-const thumbPath = path.join(
-    __dirname,
-    "public",
-    "thumbnails",
-    `thumb_${Date.now()}.jpg`
-);
-
-await generateThumbnail(videoPath, thumbPath);
-
-console.log("Thumbnail created:", thumbPath);
-
+//
 /* ====================== MULTER CONFIGURATION FOR 3D MODEL ====================== */
 const storage = multer.diskStorage({
     destination: (req, file, cb) => {
@@ -999,6 +987,33 @@ app.post("/login", async (req, res) => {
 /* =====================================================
    VIDEO MANAGER
 ===================================================== */
+
+/* ===== UPLOAD VIDEO ===== */
+app.post("/upload-video", upload.single("video"), async (req, res) => {
+    try {
+        const videoPath = req.file.path;
+
+        const thumbPath = path.join(
+            __dirname,
+            "../public_html/thumbnails",
+            `thumb_${Date.now()}.jpg`
+        );
+
+        await generateThumbnail(videoPath, thumbPath);
+
+        res.json({
+            success: true,
+            thumbnail: `/thumbnails/${path.basename(thumbPath)}`
+        });
+
+    } catch (err) {
+        console.error("UPLOAD VIDEO ERROR:", err);
+        res.status(500).json({
+            success: false,
+            message: err.message
+        });
+    }
+});
 
 /* ===== SAVE VIDEO ===== */
 app.post("/save-video", async (req, res) => {
