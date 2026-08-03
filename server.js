@@ -4,10 +4,24 @@ const bcrypt = require("bcryptjs");
 const nodemailer = require("nodemailer");
 const mysql = require("mysql2/promise");
 const multer = require("multer");
+const { exec } = require("child_process");
 const path = require("path");
 const fs = require("fs");
 require("dotenv").config();
 
+function generateThumbnail(videoPath, thumbnailPath) {
+    return new Promise((resolve, reject) => {
+        const cmd = `ffmpeg -y -i "${videoPath}" -ss 00:00:01 -frames:v 1 "${thumbnailPath}"`;
+
+        exec(cmd, (error, stdout, stderr) => {
+            if (error) {
+                console.error("FFmpeg error:", stderr);
+                return reject(error);
+            }
+            resolve(thumbnailPath);
+        });
+    });
+}
 
 const app = express();
 
@@ -102,9 +116,21 @@ const transporter = nodemailer.createTransport({
   }
 });
 
-
 /* ===== FIXED ADMIN EMAIL ===== */
 const ADMIN_EMAIL = "experience@effeverse.com";
+
+/* ===== THUMBNAIL MULTER FOR PACKAGE ===== */
+const videoPath = req.file.path;
+const thumbPath = path.join(
+    __dirname,
+    "public",
+    "thumbnails",
+    `thumb_${Date.now()}.jpg`
+);
+
+await generateThumbnail(videoPath, thumbPath);
+
+console.log("Thumbnail created:", thumbPath);
 
 /* ====================== MULTER CONFIGURATION FOR 3D MODEL ====================== */
 const storage = multer.diskStorage({
