@@ -479,7 +479,7 @@ console.log("DB result:", existingRows);
    GET SAVED IMAGES
 ===================================================== */
 
-app.get("/get-images", async (req, res) => {
+/*app.get("/get-images", async (req, res) => {
 
     try {
 
@@ -1058,6 +1058,36 @@ app.post("/login", async (req, res) => {
   }
 });
 
+// Thumbnail
+app.get("/get-images", async (req, res) => {
+    try {
+        const [rows] = await db.promise().query(`
+            SELECT
+                id,
+                slot_number,
+                file_name,
+                file_path,
+                image_url,
+                uploaded_at
+            FROM image_slots
+            ORDER BY slot_number ASC
+        `);
+
+        res.json({
+            success: true,
+            images: rows
+        });
+
+    } catch (err) {
+        console.error("GET IMAGES ERROR:", err);
+        res.status(500).json({
+            success: false,
+            message: "Failed to fetch images",
+            error: err.message
+        });
+    }
+});
+
 /* =====================================================
    VIDEO MANAGER
 ===================================================== */
@@ -1119,6 +1149,8 @@ app.post("/save-video", async (req, res) =>
             [video_name]
 
         );
+
+//Get Thumbnail
 
         //-----------------------------------
         // Update Existing Video
