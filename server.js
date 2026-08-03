@@ -17,20 +17,11 @@ const uploadFolder = path.resolve(
     "../../../../public_html/uploads"
 );
 
-// Persistent public_html path
-const publicHtmlPath = path.join(
-    path.dirname(__dirname),
-    "public_html"
+// New permanent images folder
+const imageFolder = path.resolve(
+    __dirname,
+    "../../../../public_html/images"
 );
-
-const imageFolder = path.join(publicHtmlPath, "images");
-
-fs.mkdirSync(imageFolder, { recursive: true });
-
-console.log("Permanent image folder:", imageFolder);
-
-app.use("/images", express.static(imageFolder));
-
 
 /* ===== MIDDLEWARE ===== */
 app.use(cors({
@@ -67,8 +58,17 @@ app.use(
     express.static(uploadFolder)
 );
 
+/* ====================== UPLOADS STATIC FOLDER FOR IMAGE ====================== */
+if (!fs.existsSync(imageFolder)) {
+    console.log("Creating images folder...");
+    fs.mkdirSync(imageFolder, { recursive: true });
+    console.log("Images folder created");
+} else {
+    console.log("Images folder already exists");
+}
 
-/* ====================== UPLOADS IMAGE FOLDER FOR THUMBNAIL ====================== */
+// Serve folders
+app.use("/images", express.static(imageFolder));
 app.use(express.json({ limit: "15mb" }));
 
 
