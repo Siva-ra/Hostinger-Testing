@@ -1061,51 +1061,6 @@ app.post("/login", async (req, res) => {
 /* =====================================================
    VIDEO MANAGER
 ===================================================== */
-
-const ffmpeg = require("fluent-ffmpeg");
-const ffmpegPath = require("ffmpeg-static");
-
-ffmpeg.setFfmpegPath(ffmpegPath);
-
-/* ===== GENERATE THUMBNAIL ===== */
-
-async function GenerateThumbnail(videoName, videoLink)
-{
-    return new Promise((resolve, reject) =>
-    {
-        ffmpeg(videoLink)
-
-        .on("end", () =>
-        {
-            resolve(
-                "/thumbnails/" +
-                videoName +
-                ".jpg"
-            );
-        })
-
-        .on("error", (err) =>
-        {
-            reject(err);
-        })
-
-        .screenshots({
-
-            timestamps: ["00:00:02"],
-
-            filename:
-                videoName + ".jpg",
-
-            folder:
-                thumbnailFolder,
-
-            size:
-                "320x180"
-
-        });
-    });
-}
-
 /* ===== SAVE VIDEO ===== */
 
 app.post("/save-video", async (req, res) =>
