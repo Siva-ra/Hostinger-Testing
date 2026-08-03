@@ -17,6 +17,22 @@ const uploadFolder = path.resolve(
     "../../../../public_html/uploads"
 );
 
+// Permanent folder inside public_html
+const imageFolder = path.join(
+    process.cwd(),
+    "public_html",
+    "images"
+);
+
+// Create the folder once if it doesn't exist
+fs.mkdirSync(imageFolder, { recursive: true });
+
+console.log("Permanent image folder:", imageFolder);
+
+// Serve images publicly
+app.use("/images", express.static(imageFolder));
+
+
 /* ===== MIDDLEWARE ===== */
 app.use(cors({
     origin: "*",
@@ -54,18 +70,7 @@ app.use(
 
 
 /* ====================== UPLOADS IMAGE FOLDER FOR THUMBNAIL ====================== */
-app.use(
-    express.json({
-        limit: "15mb"
-    })
-);
-//thumbnail upload
-app.use(
-    "/uploads",
-    express.static(
-        path.join(__dirname, "uploads")
-    )
-);
+app.use(express.json({ limit: "15mb" }));
 
 
 /* ===== DATABASE ===== */
@@ -171,7 +176,7 @@ function generateOTP() {
 }
 
 /* =====================================================
-   IMAGE UPLOAD THUMBNAIL
+   IMAGE UPLOAD
 ===================================================== */
 
 app.post("/upload-image/:slot", async (req, res) => {
@@ -200,13 +205,7 @@ app.post("/upload-image/:slot", async (req, res) => {
         // UPLOAD FOLDER
         // ==========================================
 
-        const uploadDirectory =
-            path.join(__dirname, "uploads","images");
-
-        await fs.promises.mkdir(
-            uploadDirectory,
-            { recursive: true }
-        );
+        const uploadDirectory = imageFolder;
 
         // ==========================================
         // REMOVE BASE64 PREFIX
@@ -265,8 +264,7 @@ app.post("/upload-image/:slot", async (req, res) => {
         // IMAGE URL
         // ==========================================
 
-        const imageUrl =
-            `http://lightgreen-cheetah-775075.hostingersite.com/uploads/images/${savedFileName}`;
+        const imageUrl =`https://lightgreen-cheetah-775075.hostingersite.com/images/${savedFileName}`;
 
         // ==========================================
         // CHECK EXISTING SLOT
