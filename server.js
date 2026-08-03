@@ -17,19 +17,18 @@ const uploadFolder = path.resolve(
     "../../../../public_html/uploads"
 );
 
-// Permanent folder inside public_html
-const imageFolder = path.join(
-    process.cwd(),
-    "public_html",
-    "images"
+// Persistent public_html path
+const publicHtmlPath = path.join(
+    path.dirname(__dirname),
+    "public_html"
 );
 
-// Create the folder once if it doesn't exist
+const imageFolder = path.join(publicHtmlPath, "images");
+
 fs.mkdirSync(imageFolder, { recursive: true });
 
 console.log("Permanent image folder:", imageFolder);
 
-// Serve images publicly
 app.use("/images", express.static(imageFolder));
 
 
