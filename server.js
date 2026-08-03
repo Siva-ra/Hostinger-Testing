@@ -119,7 +119,7 @@ const transporter = nodemailer.createTransport({
 /* ===== FIXED ADMIN EMAIL ===== */
 const ADMIN_EMAIL = "experience@effeverse.com";
 
-//
+
 /* ====================== MULTER CONFIGURATION FOR 3D MODEL ====================== */
 const storage = multer.diskStorage({
     destination: (req, file, cb) => {
@@ -1827,18 +1827,6 @@ app.get("/get-links", async (req, res) => {
   }
 });
 
-//Package check for thumbnail
-const { exec } = require("child_process");
-
-app.get("/check-ffmpeg", (req, res) => {
-    exec("ffmpeg -version", (err, stdout, stderr) => {
-        if (err) {
-            console.error("FFmpeg not found:", stderr || err.message);
-            return res.status(500).send(stderr || err.message);
-        }
-        res.send(stdout);
-    });
-});
 
 /* =====================================================
    FORGOT PASSWORD ROUTES
