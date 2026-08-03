@@ -1827,7 +1827,18 @@ app.get("/get-links", async (req, res) => {
   }
 });
 
+//Package check for thumbnail
+const { exec } = require("child_process");
 
+app.get("/check-ffmpeg", (req, res) => {
+    exec("ffmpeg -version", (err, stdout, stderr) => {
+        if (err) {
+            console.error("FFmpeg not found:", stderr || err.message);
+            return res.status(500).send(stderr || err.message);
+        }
+        res.send(stdout);
+    });
+});
 
 /* =====================================================
    FORGOT PASSWORD ROUTES
