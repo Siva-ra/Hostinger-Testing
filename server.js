@@ -284,15 +284,19 @@ app.post("/upload-image/:slot", async (req, res) => {
         // IMPORTANT: image_id, NOT id
         // ==========================================
 
-        const [existingRows] =
-            await db.promise().query(
-                `
-                SELECT image_id
-                FROM image_slots
-                WHERE slot_number = ?
-                `,
-                [slot]
-            );
+        console.log("Checking image_slots table for slot:", slot);
+
+const [existingRows] =
+    await db.promise().query(
+        `
+        SELECT image_id
+        FROM image_slots
+        WHERE slot_number = ?
+        `,
+        [slot]
+    );
+
+console.log("DB result:", existingRows);
 
         // ==========================================
         // UPDATE EXISTING SLOT
