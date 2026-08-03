@@ -53,6 +53,21 @@ app.use(
 );
 
 
+/* ====================== UPLOADS IMAGE FOLDER FOR THUMBNAIL ====================== */
+app.use(
+    express.json({
+        limit: "15mb"
+    })
+);
+//thumbnail upload
+app.use(
+    "/uploads",
+    express.static(
+        path.join(__dirname, "uploads")
+    )
+);
+
+
 /* ===== DATABASE ===== */
 const db = mysql.createPool({
   host: process.env.DB_HOST,
@@ -154,6 +169,274 @@ const documentUpload = multer({
 function generateOTP() {
   return Math.floor(100000 + Math.random() * 900000).toString();
 }
+
+/* =====================================================
+   IMAGE UPLOAD THUMBNAIL
+===================================================== */
+
+app.post("/upload-image/:slot", async (req, res) => {
+
+    try {
+
+        const slot = parseInt(req.params.slot, 10);
+
+        if (isNaN(slot) || slot < 1 || slot > 5) {
+            return res.status(400).json({
+                success: false,
+                message: "Invalid slot. Use 1 to 5."
+            });
+        }
+
+        const { image, fileName } = req.body;
+
+        if (!image || !fileName) {
+            return res.status(400).json({
+                success: false,
+                message: "Image or file name missing."
+            });
+        }
+
+        // ==========================================
+        // UPLOAD FOLDER
+        // ==========================================
+
+        const uploadDirectory =
+            path.join(__dirname, "uploads","images");
+
+        await fs.promises.mkdir(
+            uploadDirectory,
+            { recursive: true }
+        );
+
+        // ==========================================
+        // REMOVE BASE64 PREFIX
+        // ==========================================
+
+        const cleanBase64 =
+            image.includes(",")
+                ? image.split(",")[1]
+                : image;
+
+        // ==========================================
+        // FILE EXTENSION
+        // ==========================================
+
+        let extension =
+            path.extname(fileName).toLowerCase();
+
+        if (
+            extension !== ".jpg" &&
+            extension !== ".jpeg" &&
+            extension !== ".png" &&
+            extension !== ".webp"
+        ) {
+            extension = ".jpg";
+        }
+
+        // ==========================================
+        // CREATE FILE NAME
+        // ==========================================
+
+        const savedFileName =
+            `slot_${slot}_${Date.now()}${extension}`;
+
+        const filePath =
+            path.join(
+                uploadDirectory,
+                savedFileName
+            );
+
+        // ==========================================
+        // SAVE IMAGE FILE
+        // ==========================================
+
+        const imageBuffer =
+            Buffer.from(
+                cleanBase64,
+                "base64"
+            );
+
+        await fs.promises.writeFile(
+            filePath,
+            imageBuffer
+        );
+
+        // ==========================================
+        // IMAGE URL
+        // ==========================================
+
+        const imageUrl =
+            `http://lightgreen-cheetah-775075.hostingersite.com/uploads/images/${savedFileName}`;
+
+        // ==========================================
+        // CHECK EXISTING SLOT
+        // IMPORTANT: image_id, NOT id
+        // ==========================================
+
+        const [existingRows] =
+            await db.promise().query(
+                `
+                SELECT image_id
+                FROM image_slots
+                WHERE slot_number = ?
+                `,
+                [slot]
+            );
+
+        // ==========================================
+        // UPDATE EXISTING SLOT
+        // ==========================================
+
+        if (existingRows.length > 0) {
+
+            await db.promise().query(
+                `
+                UPDATE image_slots
+                SET
+                    file_name = ?,
+                    file_path = ?,
+                    uploaded_at = CURRENT_TIMESTAMP
+                WHERE slot_number = ?
+                `,
+                [
+                    savedFileName,
+                    imageUrl,
+                    slot
+                ]
+            );
+
+            console.log(
+                `Slot ${slot} image updated`
+            );
+
+        }
+
+        // ==========================================
+        // INSERT NEW SLOT
+        // ==========================================
+
+        else {
+
+            await db.promise().query(
+                `
+                INSERT INTO image_slots
+                (
+                    slot_number,
+                    file_name,
+                    file_path
+                )
+                VALUES (?, ?, ?)
+                `,
+                [
+                    slot,
+                    savedFileName,
+                    imageUrl
+                ]
+            );
+
+            console.log(
+                `Slot ${slot} image inserted`
+            );
+        }
+
+        // ==========================================
+        // SUCCESS
+        // ==========================================
+
+        res.json({
+
+            success: true,
+
+            message:
+                `Slot ${slot} image uploaded successfully`,
+
+            slot: slot,
+
+            fileName:
+                savedFileName,
+
+            imageUrl:
+                imageUrl
+
+        });
+
+    }
+    catch (err) {
+
+        console.error(
+            "IMAGE UPLOAD ERROR:",
+            err
+        );
+
+        res.status(500).json({
+
+            success: false,
+
+            message:
+                "Image upload failed",
+
+            error:
+                err.message
+
+        });
+
+    }
+
+});
+/* =====================================================
+   GET SAVED IMAGES
+===================================================== */
+/* =====================================================
+   GET SAVED IMAGES
+===================================================== */
+/* =====================================================
+   GET SAVED IMAGES
+===================================================== */
+
+app.get("/get-images", async (req, res) => {
+
+    try {
+
+        const [rows] =
+            await db.promise().query(
+                `
+                SELECT
+                    image_id,
+                    slot_number,
+                    file_name,
+                    file_path
+                FROM image_slots
+                ORDER BY slot_number ASC
+                `
+            );
+
+        res.json({
+            success: true,
+            images: rows
+        });
+
+    }
+    catch (err) {
+
+        console.error(
+            "GET IMAGES ERROR:",
+            err
+        );
+
+        res.status(500).json({
+
+            success: false,
+
+            message:
+                "Failed to fetch images"
+
+        });
+
+    }
+
+});
+
+
 
 /* ====================== UPLOAD 3D MODEL ====================== */
 
