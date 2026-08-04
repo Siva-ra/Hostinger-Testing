@@ -1021,7 +1021,6 @@ app.post("/login", async (req, res) => {
 // -----------------------------------------------------
 // Generate Thumbnail
 // -----------------------------------------------------
-
 function GenerateThumbnail(videoName, videoLink) {
     return new Promise((resolve, reject) => {
 
@@ -1031,6 +1030,9 @@ function GenerateThumbnail(videoName, videoLink) {
         ffmpeg(videoLink)
             .on("start", cmd => {
                 console.log("FFmpeg command:", cmd);
+            })
+            .on("stderr", line => {
+                console.log("FFmpeg:", line);
             })
             .on("end", () => {
                 console.log("Thumbnail created:", videoName);
@@ -1049,6 +1051,30 @@ function GenerateThumbnail(videoName, videoLink) {
 
     });
 }
+
+//Get Images For Thumbnail
+app.get("/get-images", async (req, res) => {
+    try {
+        const [rows] = await db.query(
+            `SELECT id, slot_number, file_name, file_path, image_url, uploaded_at
+             FROM image_slots
+             ORDER BY slot_number ASC`
+        );
+
+        res.json({
+            success: true,
+            images: rows
+        });
+
+    } catch (err) {
+        console.error("GET IMAGES ERROR:", err);
+
+        res.status(500).json({
+            success: false,
+            message: err.message
+        });
+    }
+});
 
 /* =====================================================
    SAVE VIDEO
