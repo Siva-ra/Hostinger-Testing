@@ -1117,12 +1117,10 @@ app.post("/save-video", async (req, res) => {
     try {
         const { video_name, video_link } = req.body;
 
-        console.log("SAVE VIDEO REQUEST:", req.body);
-
         if (!video_name || !video_link) {
             return res.status(400).json({
                 success: false,
-                message: "video_name and video_link are required"
+                message: "Missing fields"
             });
         }
 
@@ -1132,18 +1130,18 @@ app.post("/save-video", async (req, res) => {
         try {
             thumbnail = await GenerateThumbnail(video_name, video_link);
         } catch (err) {
-            console.error("Thumbnail generation failed:", err.message);
+            console.error("Thumbnail error:", err.message);
         }
 
         // Check if video exists
-        const [rows] = await dbPromise.query(
+        const [rows] = await db.query(
             "SELECT id FROM videos WHERE video_name = ?",
             [video_name]
         );
 
         if (rows.length > 0) {
             // Update existing
-            await dbPromise.query(
+            await db.query(
                 "UPDATE videos SET video_link = ?, thumbnail = ? WHERE video_name = ?",
                 [video_link, thumbnail, video_name]
             );
@@ -1156,7 +1154,7 @@ app.post("/save-video", async (req, res) => {
         }
 
         // Insert new
-        const [result] = await dbPromise.query(
+        const [result] = await db.query(
             "INSERT INTO videos (video_name, video_link, thumbnail) VALUES (?, ?, ?)",
             [video_name, video_link, thumbnail]
         );
