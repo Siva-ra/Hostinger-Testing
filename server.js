@@ -1190,89 +1190,45 @@ app.post("/save-video", async (req, res) => {
 ===================================================== */
 
 app.post("/delete-video", async (req, res) => {
-
     try {
-
         const { video_name } = req.body;
 
+        console.log("DELETE REQUEST:", video_name);
+
         if (!video_name) {
-
             return res.status(400).json({
-
                 success: false,
-
                 message: "video_name is required"
-
             });
         }
 
-        //---------------------------------------------
-        // Delete thumbnail file
-        //---------------------------------------------
-
-        const thumbFile = path.join(
-
-            thumbnailFolder,
-
-            `${video_name}.jpg`
-
-        );
-
-        if (fs.existsSync(thumbFile)) {
-
-            fs.unlinkSync(thumbFile);
-
-            console.log(
-
-                "Deleted thumbnail:",
-                thumbFile
-
-            );
+        // Delete thumbnail file if it exists
+        const thumbPath = path.join(thumbnailFolder, `${video_name}.jpg`);
+        if (fs.existsSync(thumbPath)) {
+            fs.unlinkSync(thumbPath);
         }
 
-        //---------------------------------------------
-        // Delete DB record
-        //---------------------------------------------
-
-     const [result] = await db.query(
-  "INSERT INTO videos (video_name, video_link, thumbnail) VALUES (?, ?, ?)",
-  [video_name, video_link, thumbnail]
-);
-
-        console.log(
-
-            "Rows deleted:",
-            result.affectedRows
-
+        // Delete from database
+        const [result] = await db.query(
+            "DELETE FROM videos WHERE video_name = ?",
+            [video_name]
         );
 
-        res.json({
+        console.log("Rows deleted:", result.affectedRows);
 
+        return res.json({
             success: true,
-
             message: "Video deleted successfully"
-
         });
 
     } catch (err) {
+        console.error("DELETE VIDEO ERROR:", err);
 
-        console.error(
-
-            "DELETE VIDEO ERROR:",
-            err
-
-        );
-
-        res.status(500).json({
-
+        return res.status(500).json({
             success: false,
-
             message: err.message
-
         });
-
     }
-
 });
 
 /* =====================================================
