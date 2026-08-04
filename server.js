@@ -25,10 +25,17 @@ const uploadFolder = path.resolve(
 );
 
 // New permanent images folder
-//const imageFolder = path.resolve(
-//    __dirname,
-//    "../../../../public_html/images"
-//);
+const photoFolder = path.resolve(
+    __dirname,
+    "../../../../public_html/photos"
+);
+// Create folder if it doesn't exist
+if (!fs.existsSync(photoFolder)) {
+    fs.mkdirSync(photoFolder, { recursive: true });
+}
+
+// Serve photos folder
+app.use("/photos", express.static(photoFolder));
 
 // -----------------------------------------------------
 // Thumbnail Folder
@@ -83,7 +90,7 @@ app.use(
 );
 
 /* ====================== UPLOADS STATIC FOLDER FOR IMAGE ====================== */
-/*
+
 if (!fs.existsSync(imageFolder)) {
     console.log("Creating images folder...");
     fs.mkdirSync(imageFolder, { recursive: true });
@@ -222,19 +229,16 @@ function generateOTP() {
 }
 
 /* =====================================================
-   IMAGE UPLOAD
+   PhotoS UPLOAD
 ===================================================== */
-/*
-app.post("/upload-image/:slot", async (req, res) => {
-
+app.post("/upload-photo/:slot", async (req, res) => {
     try {
+        const slot = parseInt(req.params.slot);
 
-        const slot = parseInt(req.params.slot, 10);
-
-        if (isNaN(slot) || slot < 1 || slot > 5) {
+        if (slot < 1 || slot > 5) {
             return res.status(400).json({
                 success: false,
-                message: "Invalid slot. Use 1 to 5."
+                message: "Invalid Slot"
             });
         }
 
@@ -243,31 +247,13 @@ app.post("/upload-image/:slot", async (req, res) => {
         if (!image || !fileName) {
             return res.status(400).json({
                 success: false,
-                message: "Image or file name missing."
+                message: "Missing Photo"
             });
         }
 
-        // ==========================================
-        // UPLOAD FOLDER
-        // ==========================================
+        const cleanBase64 = image.includes(",") ? image.split(",")[1] : image;
 
-        const uploadDirectory = imageFolder;
-
-        // ==========================================
-        // REMOVE BASE64 PREFIX
-        // ==========================================
-
-        const cleanBase64 =
-            image.includes(",")
-                ? image.split(",")[1]
-                : image;
-
-        // ==========================================
-        // FILE EXTENSION
-        // ==========================================
-
-        let extension =
-            path.extname(fileName).toLowerCase();
+        let extension = path.extname(fileName).toLowerCase();
 
         if (
             extension !== ".jpg" &&
@@ -278,214 +264,88 @@ app.post("/upload-image/:slot", async (req, res) => {
             extension = ".jpg";
         }
 
-        // ==========================================
-        // CREATE FILE NAME
-        // ==========================================
+        const [rows] = await db.query(
+            "SELECT file_name FROM image_slots WHERE slot_number=?",
+            [slot]
+        );
 
-        const savedFileName =
-            `slot_${slot}_${Date.now()}${extension}`;
+        if (rows.length > 0) {
+            const oldPhoto = path.join(photoFolder, rows[0].file_name);
 
-        const filePath =
-            path.join(
-                uploadDirectory,
-                savedFileName
-            );
+            if (fs.existsSync(oldPhoto)) {
+                fs.unlinkSync(oldPhoto);
+            }
+        }
 
-        // ==========================================
-        // SAVE IMAGE FILE
-        // ==========================================
-
-        const imageBuffer =
-            Buffer.from(
-                cleanBase64,
-                "base64"
-            );
+        const newFileName = `slot_${slot}_${Date.now()}${extension}`;
+        const savePath = path.join(photoFolder, newFileName);
 
         await fs.promises.writeFile(
-            filePath,
-            imageBuffer
+            savePath,
+            Buffer.from(cleanBase64, "base64")
         );
 
-        // ==========================================
-        // IMAGE URL
-        // ==========================================
+        const photoUrl =
+            `https://lightgreen-cheetah-775075.hostingersite.com/photos/${newFileName}`;
 
-        const imageUrl =`https://lightgreen-cheetah-775075.hostingersite.com/images/${savedFileName}`;
-
-        // ==========================================
-        // CHECK EXISTING SLOT
-        // IMPORTANT: image_id, NOT id
-        // ==========================================
-
-        console.log("Checking image_slots table for slot:", slot);
-
-const [existingRows] =
-    await db.promise().query(
-        `
-        SELECT image_id
-        FROM image_slots
-        WHERE slot_number = ?
-        `,
-        [slot]
-    );
-
-console.log("DB result:", existingRows);
-
-        // ==========================================
-        // UPDATE EXISTING SLOT
-        // ==========================================
-
-        if (existingRows.length > 0) {
-
-            await db.promise().query(
-                `
-                UPDATE image_slots
-                SET
-                    file_name = ?,
-                    file_path = ?,
-                    uploaded_at = CURRENT_TIMESTAMP
-                WHERE slot_number = ?
-                `,
-                [
-                    savedFileName,
-                    imageUrl,
-                    slot
-                ]
+        if (rows.length > 0) {
+            await db.query(
+                `UPDATE image_slots
+                 SET file_name=?, file_path=?, uploaded_at=NOW()
+                 WHERE slot_number=?`,
+                [newFileName, photoUrl, slot]
             );
-
-            console.log(
-                `Slot ${slot} image updated`
-            );
-
-        }
-
-        // ==========================================
-        // INSERT NEW SLOT
-        // ==========================================
-
-        else {
-
-            await db.promise().query(
-                `
-                INSERT INTO image_slots
-                (
-                    slot_number,
-                    file_name,
-                    file_path
-                )
-                VALUES (?, ?, ?)
-                `,
-                [
-                    slot,
-                    savedFileName,
-                    imageUrl
-                ]
-            );
-
-            console.log(
-                `Slot ${slot} image inserted`
+        } else {
+            await db.query(
+                `INSERT INTO image_slots
+                (slot_number, file_name, file_path)
+                VALUES (?,?,?)`,
+                [slot, newFileName, photoUrl]
             );
         }
-
-        // ==========================================
-        // SUCCESS
-        // ==========================================
 
         res.json({
-
             success: true,
-
-            message:
-                `Slot ${slot} image uploaded successfully`,
-
-            slot: slot,
-
-            fileName:
-                savedFileName,
-
-            imageUrl:
-                imageUrl
-
+            photoUrl
         });
 
-    }
-    catch (err) {
-
-        console.error(
-            "IMAGE UPLOAD ERROR:",
-            err
-        );
+    } catch (err) {
+        console.error(err);
 
         res.status(500).json({
-
             success: false,
-
-            message:
-                "Image upload failed",
-
-            error:
-                err.message
-
+            message: err.message
         });
-
     }
-
 });
 
-/* =====================================================
-   GET SAVED IMAGES
-===================================================== */
-/* =====================================================
-   GET SAVED IMAGES
-===================================================== */
-/* =====================================================
-   GET SAVED IMAGES
-===================================================== */
-
-/*app.get("/get-images", async (req, res) => {
-
+//Get Photos
+app.get("/get-photos", async (req, res) => {
     try {
-
-        const [rows] =
-            await db.promise().query(
-                `
-                SELECT
-                    image_id,
-                    slot_number,
-                    file_name,
-                    file_path
-                FROM image_slots
-                ORDER BY slot_number ASC
-                `
-            );
+        const [rows] = await db.query(
+            `SELECT
+                image_id,
+                slot_number,
+                file_name,
+                file_path
+             FROM image_slots
+             ORDER BY slot_number ASC`
+        );
 
         res.json({
             success: true,
-            images: rows
+            photos: rows
         });
 
-    }
-    catch (err) {
-
-        console.error(
-            "GET IMAGES ERROR:",
-            err
-        );
+    } catch (err) {
+        console.error(err);
 
         res.status(500).json({
-
             success: false,
-
-            message:
-                "Failed to fetch images"
-
+            message: err.message
         });
-
     }
-
 });
-
-
 
 /* ====================== UPLOAD 3D MODEL ====================== */
 
