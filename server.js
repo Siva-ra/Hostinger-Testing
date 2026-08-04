@@ -12,33 +12,6 @@ const fs = require("fs");
 require("dotenv").config();
 ffmpeg.setFfmpegPath("/usr/bin/ffmpeg");
 
-function GenerateThumbnail(videoName, videoLink) {
-    return new Promise((resolve, reject) => {
-
-        console.log("Generating thumbnail for:", videoName);
-        console.log("Video URL:", videoLink);
-
-        ffmpeg(videoLink)
-            .on("start", cmd => {
-                console.log("FFmpeg command:", cmd);
-            })
-            .on("end", () => {
-                console.log("Thumbnail created:", videoName);
-                resolve(`/thumbnails/${videoName}.jpg`);
-            })
-            .on("error", err => {
-                console.error("FFmpeg ERROR:", err.message);
-                reject(err);
-            })
-            .screenshots({
-                timestamps: ["00:00:02"],
-                filename: `${videoName}.jpg`,
-                folder: thumbnailFolder,
-                size: "320x180"
-            });
-
-    });
-}
 
 const app = express();
 
@@ -1097,17 +1070,19 @@ app.post("/login", async (req, res) => {
 // -----------------------------------------------------
 // Generate Thumbnail
 // -----------------------------------------------------
+
 function GenerateThumbnail(videoName, videoLink) {
     return new Promise((resolve, reject) => {
 
-        console.log("Generating thumbnail from:", videoLink);
+        console.log("Generating thumbnail for:", videoName);
+        console.log("Video URL:", videoLink);
 
         ffmpeg(videoLink)
             .on("start", cmd => {
                 console.log("FFmpeg command:", cmd);
             })
             .on("end", () => {
-                console.log("Thumbnail generated successfully");
+                console.log("Thumbnail created:", videoName);
                 resolve(`/thumbnails/${videoName}.jpg`);
             })
             .on("error", err => {
