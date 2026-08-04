@@ -6,14 +6,15 @@ const mysql = require("mysql2/promise");
 const multer = require("multer");
 const { exec } = require("child_process");
 const ffmpeg = require("fluent-ffmpeg");
-const ffmpegPath = require("ffmpeg-static");
+//const ffmpegPath = require("ffmpeg-static");
 const path = require("path");
 const fs = require("fs");
 require("dotenv").config();
 
-// Use the ffmpeg binary that comes with the package
-ffmpeg.setFfmpegPath(ffmpegPath);
-console.log("FFmpeg path:", ffmpegPath);
+// Use the FFmpeg installed on the Hostinger server
+ffmpeg.setFfmpegPath("/usr/bin/ffmpeg");
+
+console.log("FFmpeg path:", "/usr/bin/ffmpeg");
 
 const app = express();
 
