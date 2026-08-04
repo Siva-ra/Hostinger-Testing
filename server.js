@@ -15,13 +15,16 @@ ffmpeg.setFfmpegPath("/usr/bin/ffmpeg");
 function GenerateThumbnail(videoName, videoLink) {
     return new Promise((resolve, reject) => {
 
-        const fileName = `${videoName}.jpg`;
+        console.log("Generating thumbnail for:", videoName);
+        console.log("Video URL:", videoLink);
 
         ffmpeg(videoLink)
-            .on("start", cmd => console.log("FFmpeg:", cmd))
+            .on("start", cmd => {
+                console.log("FFmpeg command:", cmd);
+            })
             .on("end", () => {
-                console.log("Thumbnail created:", fileName);
-                resolve(`/thumbnails/${fileName}`);
+                console.log("Thumbnail created:", videoName);
+                resolve(`/thumbnails/${videoName}.jpg`);
             })
             .on("error", err => {
                 console.error("FFmpeg ERROR:", err.message);
@@ -29,7 +32,7 @@ function GenerateThumbnail(videoName, videoLink) {
             })
             .screenshots({
                 timestamps: ["00:00:02"],
-                filename: fileName,
+                filename: `${videoName}.jpg`,
                 folder: thumbnailFolder,
                 size: "320x180"
             });
