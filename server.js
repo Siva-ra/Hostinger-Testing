@@ -1946,6 +1946,19 @@ app.get("/get-links", async (req, res) => {
   }
 });
 
+//Thumbnail image check
+app.get("/check-ffmpeg", (req, res) => {
+    const { exec } = require("child_process");
+
+    exec("which ffmpeg && ffmpeg -version", (err, stdout, stderr) => {
+        res.json({
+            error: err ? err.message : null,
+            stdout,
+            stderr
+        });
+    });
+});
+
 
 /* =====================================================
    FORGOT PASSWORD ROUTES
