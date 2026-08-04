@@ -149,7 +149,7 @@ const db = mysql.createPool({
   password: process.env.DB_PASSWORD,
   database: process.env.DB_NAME
 });
-
+const dbPromise = db.promise();
 
 /* ===== TEST DB CONNECTION ===== */
 db.getConnection()
