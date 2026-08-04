@@ -10,8 +10,10 @@ const ffmpegPath = require("ffmpeg-static");
 const path = require("path");
 const fs = require("fs");
 require("dotenv").config();
-ffmpeg.setFfmpegPath("/usr/bin/ffmpeg");
 
+// Use the ffmpeg binary that comes with the package
+ffmpeg.setFfmpegPath(ffmpegPath);
+console.log("FFmpeg path:", ffmpegPath);
 
 const app = express();
 
