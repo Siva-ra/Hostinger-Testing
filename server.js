@@ -40,11 +40,22 @@ const uploadFolder = path.resolve(
 //    "../../../../public_html/images"
 //);
 
-// IMPORTANT: define thumbnailFolder first
+// -----------------------------------------------------
+// Thumbnail Folder
+// -----------------------------------------------------
 const thumbnailFolder = path.resolve(
     __dirname,
     "../../../../public_html/thumbnails"
 );
+
+if (!fs.existsSync(thumbnailFolder)) {
+    fs.mkdirSync(thumbnailFolder, { recursive: true });
+}
+
+console.log("Thumbnail folder:", thumbnailFolder);
+
+// Serve thumbnails
+app.use("/thumbnails", express.static(thumbnailFolder));
 
 /* ===== MIDDLEWARE ===== */
 app.use(cors({
@@ -96,6 +107,7 @@ app.use("/images", express.static(imageFolder));
 app.use(express.json({ limit: "15mb" }));
 
 /* ====================== UPLOADS STATIC FOLDER FOR THUMBNAIL ====================== */
+/*
 console.log("thumbnailFolder =", thumbnailFolder);
 
 if (!fs.existsSync(thumbnailFolder)) {
@@ -1059,91 +1071,94 @@ app.post("/login", async (req, res) => {
   }
 });
 
-// Thumbnail
-app.get("/get-images", async (req, res) => {
-    try {
-        const [rows] = await db.promise().query(`
-            SELECT
-                id,
-                slot_number,
-                file_name,
-                file_path,
-                image_url,
-                uploaded_at
-            FROM image_slots
-            ORDER BY slot_number ASC
-        `);
+// -----------------------------------------------------
+// Generate Thumbnail
+// -----------------------------------------------------
+function GenerateThumbnail(videoName, videoLink) {
+    return new Promise((resolve, reject) => {
 
-        res.json({
-            success: true,
-            images: rows
-        });
+        const fileName = `${videoName}.jpg`;
+        const fullPath = path.join(thumbnailFolder, fileName);
 
-    } catch (err) {
-        console.error("GET IMAGES ERROR:", err);
-        res.status(500).json({
-            success: false,
-            message: "Failed to fetch images",
-            error: err.message
-        });
-    }
-});
+        // Delete old thumbnail if it exists
+        if (fs.existsSync(fullPath)) {
+            fs.unlinkSync(fullPath);
+        }
+
+        ffmpeg(videoLink)
+            .on("end", () => {
+                console.log("Thumbnail created:", fullPath);
+                resolve(`/thumbnails/${fileName}`);
+            })
+            .on("error", (err) => {
+                console.error("FFmpeg Error:", err.message);
+                reject(err);
+            })
+            .screenshots({
+                timestamps: ["00:00:02"],
+                filename: fileName,
+                folder: thumbnailFolder,
+                size: "320x180"
+            });
+
+    });
+}
 
 /* =====================================================
-   VIDEO MANAGER
+   SAVE VIDEO
 ===================================================== */
-/* ===== SAVE VIDEO ===== */
 
-app.post("/save-video", async (req, res) =>
-{
-    try
-    {
-        const
-        {
-            video_name,
-            video_link
-        }
-        = req.body;
+app.post("/save-video", async (req, res) => {
 
-        if (!video_name || !video_link)
-        {
-            return res.json({
+    try {
+
+        const { video_name, video_link } = req.body;
+
+        console.log("SAVE VIDEO REQUEST:", req.body);
+
+        if (!video_name || !video_link) {
+
+            return res.status(400).json({
 
                 success: false,
 
-                message: "Missing fields"
+                message: "video_name and video_link are required"
 
             });
         }
 
-        //-----------------------------------
+        //---------------------------------------------
         // Generate Thumbnail
-        //-----------------------------------
+        //---------------------------------------------
 
-        let thumbnail = "";
+        let thumbnail = null;
 
-        try
-        {
-            thumbnail =
-                await GenerateThumbnail(
-                    video_name,
-                    video_link
-                );
-        }
-        catch (err)
-        {
-            console.error(
-                "Thumbnail Error:",
-                err.message
+        try {
+
+            thumbnail = await GenerateThumbnail(
+
+                video_name,
+                video_link
+
             );
+
+        } catch (thumbErr) {
+
+            console.error(
+
+                "Thumbnail generation failed:",
+                thumbErr.message
+
+            );
+
+            // Continue saving video even if thumbnail fails
         }
 
-        //-----------------------------------
-        // Check Existing
-        //-----------------------------------
+        //---------------------------------------------
+        // Check if video already exists
+        //---------------------------------------------
 
-        const [rows] =
-        await db.query(
+        const [rows] = await db.query(
 
             "SELECT id FROM videos WHERE video_name = ?",
 
@@ -1151,20 +1166,18 @@ app.post("/save-video", async (req, res) =>
 
         );
 
-//Get Thumbnail
+        //---------------------------------------------
+        // UPDATE
+        //---------------------------------------------
 
-        //-----------------------------------
-        // Update Existing Video
-        //-----------------------------------
+        if (rows.length > 0) {
 
-        if (rows.length > 0)
-        {
-            await db.query(
+            const [result] = await db.query(
 
                 `UPDATE videos
                  SET
-                 video_link = ?,
-                 thumbnail = ?
+                     video_link = ?,
+                     thumbnail = ?
                  WHERE video_name = ?`,
 
                 [
@@ -1172,22 +1185,32 @@ app.post("/save-video", async (req, res) =>
                     thumbnail,
                     video_name
                 ]
+
+            );
+
+            console.log(
+
+                "Rows updated:",
+                result.affectedRows
+
             );
 
             return res.json({
 
                 success: true,
 
-                message: "Video updated"
+                message: "Video updated successfully",
+
+                thumbnail: thumbnail
 
             });
         }
 
-        //-----------------------------------
-        // Insert New Video
-        //-----------------------------------
+        //---------------------------------------------
+        // INSERT
+        //---------------------------------------------
 
-        await db.query(
+        const [result] = await db.query(
 
             `INSERT INTO videos
             (
@@ -1195,7 +1218,6 @@ app.post("/save-video", async (req, res) =>
                 video_link,
                 thumbnail
             )
-
             VALUES (?, ?, ?)`,
 
             [
@@ -1203,21 +1225,33 @@ app.post("/save-video", async (req, res) =>
                 video_link,
                 thumbnail
             ]
+
+        );
+
+        console.log(
+
+            "Video inserted:",
+            result.insertId
+
         );
 
         res.json({
 
             success: true,
 
-            message: "Video saved"
+            message: "Video saved successfully",
+
+            thumbnail: thumbnail
 
         });
-    }
-    catch (err)
-    {
+
+    } catch (err) {
+
         console.error(
+
             "SAVE VIDEO ERROR:",
-            err.message
+            err
+
         );
 
         res.status(500).json({
@@ -1227,33 +1261,61 @@ app.post("/save-video", async (req, res) =>
             message: err.message
 
         });
+
     }
+
 });
 
-/* ===== DELETE VIDEO ===== */
+/* =====================================================
+   DELETE VIDEO
+===================================================== */
 
-app.post("/delete-video", async (req, res) =>
-{
-    try
-    {
-        const
-        {
-            video_name
-        }
-        = req.body;
+app.post("/delete-video", async (req, res) => {
 
-        if (!video_name)
-        {
-            return res.json({
+    try {
+
+        const { video_name } = req.body;
+
+        if (!video_name) {
+
+            return res.status(400).json({
 
                 success: false,
 
-                message: "Video name missing"
+                message: "video_name is required"
 
             });
         }
 
-        await db.query(
+        //---------------------------------------------
+        // Delete thumbnail file
+        //---------------------------------------------
+
+        const thumbFile = path.join(
+
+            thumbnailFolder,
+
+            `${video_name}.jpg`
+
+        );
+
+        if (fs.existsSync(thumbFile)) {
+
+            fs.unlinkSync(thumbFile);
+
+            console.log(
+
+                "Deleted thumbnail:",
+                thumbFile
+
+            );
+        }
+
+        //---------------------------------------------
+        // Delete DB record
+        //---------------------------------------------
+
+        const [result] = await db.query(
 
             "DELETE FROM videos WHERE video_name = ?",
 
@@ -1261,19 +1323,28 @@ app.post("/delete-video", async (req, res) =>
 
         );
 
+        console.log(
+
+            "Rows deleted:",
+            result.affectedRows
+
+        );
+
         res.json({
 
             success: true,
 
-            message: "Video deleted"
+            message: "Video deleted successfully"
 
         });
-    }
-    catch (err)
-    {
+
+    } catch (err) {
+
         console.error(
+
             "DELETE VIDEO ERROR:",
-            err.message
+            err
+
         );
 
         res.status(500).json({
@@ -1283,32 +1354,47 @@ app.post("/delete-video", async (req, res) =>
             message: err.message
 
         });
+
     }
+
 });
 
-/* ===== GET VIDEOS ===== */
+/* =====================================================
+   GET VIDEOS
+===================================================== */
 
-app.get("/get-videos", async (req, res) =>
-{
-    try
-    {
-        const [rows] =
-        await db.query(
+app.get("/get-videos", async (req, res) => {
+
+    try {
+
+        const [rows] = await db.query(
 
             `SELECT
                 id,
                 video_name,
                 video_link,
                 thumbnail
-             FROM videos`
+             FROM videos
+             ORDER BY id ASC`
 
         );
 
-        res.json(rows);
-    }
-    catch (err)
-    {
-        console.log(err);
+        res.json({
+
+            success: true,
+
+            videos: rows
+
+        });
+
+    } catch (err) {
+
+        console.error(
+
+            "GET VIDEOS ERROR:",
+            err
+
+        );
 
         res.status(500).json({
 
@@ -1317,7 +1403,9 @@ app.get("/get-videos", async (req, res) =>
             message: err.message
 
         });
+
     }
+
 });
 
 
