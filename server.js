@@ -89,20 +89,6 @@ app.use(
     express.static(uploadFolder)
 );
 
-/* ====================== UPLOADS STATIC FOLDER FOR IMAGE ====================== */
-
-if (!fs.existsSync(imageFolder)) {
-    console.log("Creating images folder...");
-    fs.mkdirSync(imageFolder, { recursive: true });
-    console.log("Images folder created");
-} else {
-    console.log("Images folder already exists");
-}
-
-// Serve folders
-app.use("/images", express.static(imageFolder));
-app.use(express.json({ limit: "15mb" }));
-
 /* ====================== UPLOADS STATIC FOLDER FOR THUMBNAIL ====================== */
 /*
 console.log("thumbnailFolder =", thumbnailFolder);
