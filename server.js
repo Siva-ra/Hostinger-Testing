@@ -1264,45 +1264,29 @@ app.post("/delete-video", async (req, res) => {
 /* =====================================================
    GET VIDEOS
 ===================================================== */
-
 app.get("/get-videos", async (req, res) => {
-
     try {
-
-       const [rows] = await db.query(
-  "SELECT id FROM videos WHERE video_name = ?",
-  [video_name]
-);
-
-        res.json({
-
-            success: true,
-
-            videos: rows
-
-        });
-
-    } catch (err) {
-
-        console.error(
-
-            "GET VIDEOS ERROR:",
-            err
-
+        const [rows] = await db.query(
+            `SELECT
+                id,
+                video_name,
+                video_link,
+                thumbnail
+             FROM videos
+             ORDER BY id ASC`
         );
 
+        res.json(rows);
+
+    } catch (err) {
+        console.error("GET VIDEOS ERROR:", err);
+
         res.status(500).json({
-
             success: false,
-
             message: err.message
-
         });
-
     }
-
 });
-
 
 
 /* ================= PLAYER PROGRESS ================= */
