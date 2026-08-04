@@ -35,10 +35,10 @@ const uploadFolder = path.resolve(
 );
 
 // New permanent images folder
-const imageFolder = path.resolve(
-    __dirname,
-    "../../../../public_html/images"
-);
+//const imageFolder = path.resolve(
+//    __dirname,
+//    "../../../../public_html/images"
+//);
 
 // IMPORTANT: define thumbnailFolder first
 const thumbnailFolder = path.resolve(
@@ -82,6 +82,7 @@ app.use(
 );
 
 /* ====================== UPLOADS STATIC FOLDER FOR IMAGE ====================== */
+/*
 if (!fs.existsSync(imageFolder)) {
     console.log("Creating images folder...");
     fs.mkdirSync(imageFolder, { recursive: true });
@@ -261,7 +262,7 @@ function generateOTP() {
 /* =====================================================
    IMAGE UPLOAD
 ===================================================== */
-
+/*
 app.post("/upload-image/:slot", async (req, res) => {
 
     try {
