@@ -10,7 +10,7 @@ const ffmpegPath = require("ffmpeg-static");
 const path = require("path");
 const fs = require("fs");
 require("dotenv").config();
-ffmpeg.setFfmpegPath(ffmpegPath);
+ffmpeg.setFfmpegPath("/usr/bin/ffmpeg");
 
 function generateThumbnail(videoPath, thumbPath) {
     return new Promise((resolve, reject) => {
@@ -1106,161 +1106,69 @@ function GenerateThumbnail(videoName, videoLink) {
 ===================================================== */
 
 app.post("/save-video", async (req, res) => {
-
     try {
-
         const { video_name, video_link } = req.body;
 
         console.log("SAVE VIDEO REQUEST:", req.body);
 
         if (!video_name || !video_link) {
-
             return res.status(400).json({
-
                 success: false,
-
                 message: "video_name and video_link are required"
-
             });
         }
 
-        //---------------------------------------------
-        // Generate Thumbnail
-        //---------------------------------------------
-
+        // Generate thumbnail
         let thumbnail = null;
 
         try {
-
-            thumbnail = await GenerateThumbnail(
-
-                video_name,
-                video_link
-
-            );
-
-        } catch (thumbErr) {
-
-            console.error(
-
-                "Thumbnail generation failed:",
-                thumbErr.message
-
-            );
-
-            // Continue saving video even if thumbnail fails
+            thumbnail = await GenerateThumbnail(video_name, video_link);
+        } catch (err) {
+            console.error("Thumbnail generation failed:", err.message);
         }
 
-        //---------------------------------------------
-        // Check if video already exists
-        //---------------------------------------------
-
-        const [rows] = await db.query(
-
+        // Check if video exists
+        const [rows] = await db.promise().query(
             "SELECT id FROM videos WHERE video_name = ?",
-
             [video_name]
-
         );
 
-        //---------------------------------------------
-        // UPDATE
-        //---------------------------------------------
-
+        // Update
         if (rows.length > 0) {
-
-            const [result] = await db.query(
-
-                `UPDATE videos
-                 SET
-                     video_link = ?,
-                     thumbnail = ?
-                 WHERE video_name = ?`,
-
-                [
-                    video_link,
-                    thumbnail,
-                    video_name
-                ]
-
-            );
-
-            console.log(
-
-                "Rows updated:",
-                result.affectedRows
-
+            await db.promise().query(
+                "UPDATE videos SET video_link = ?, thumbnail = ? WHERE video_name = ?",
+                [video_link, thumbnail, video_name]
             );
 
             return res.json({
-
                 success: true,
-
                 message: "Video updated successfully",
-
                 thumbnail: thumbnail
-
             });
         }
 
-        //---------------------------------------------
-        // INSERT
-        //---------------------------------------------
-
-        const [result] = await db.query(
-
-            `INSERT INTO videos
-            (
-                video_name,
-                video_link,
-                thumbnail
-            )
-            VALUES (?, ?, ?)`,
-
-            [
-                video_name,
-                video_link,
-                thumbnail
-            ]
-
+        // Insert
+        const [result] = await db.promise().query(
+            "INSERT INTO videos (video_name, video_link, thumbnail) VALUES (?, ?, ?)",
+            [video_name, video_link, thumbnail]
         );
 
-        console.log(
-
-            "Video inserted:",
-            result.insertId
-
-        );
+        console.log("Video inserted:", result.insertId);
 
         res.json({
-
             success: true,
-
             message: "Video saved successfully",
-
             thumbnail: thumbnail
-
         });
 
     } catch (err) {
-
-        console.error(
-
-            "SAVE VIDEO ERROR:",
-            err
-
-        );
+        console.error("SAVE VIDEO ERROR:", err);
 
         res.status(500).json({
-
             success: false,
-
             message: err.message
-
         });
-
     }
-
 });
 
 /* =====================================================
@@ -1312,13 +1220,10 @@ app.post("/delete-video", async (req, res) => {
         // Delete DB record
         //---------------------------------------------
 
-        const [result] = await db.query(
-
-            "DELETE FROM videos WHERE video_name = ?",
-
-            [video_name]
-
-        );
+        const [result] = await db.promise().query(
+    "DELETE FROM videos WHERE video_name = ?",
+    [video_name]
+);
 
         console.log(
 
@@ -1364,17 +1269,15 @@ app.get("/get-videos", async (req, res) => {
 
     try {
 
-        const [rows] = await db.query(
-
-            `SELECT
-                id,
-                video_name,
-                video_link,
-                thumbnail
-             FROM videos
-             ORDER BY id ASC`
-
-        );
+        const [rows] = await db.promise().query(
+    `SELECT
+        id,
+        video_name,
+        video_link,
+        thumbnail
+     FROM videos
+     ORDER BY id ASC`
+);
 
         res.json({
 
