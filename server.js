@@ -41,16 +41,6 @@ if (!fs.existsSync(thumbnailFolder)) {
 
 console.log("Thumbnail folder:", thumbnailFolder);
 
-// Promise wrapper for db.query
-function query(sql, params = []) {
-    return new Promise((resolve, reject) => {
-        db.query(sql, params, (err, results) => {
-            if (err) return reject(err);
-            resolve(results);
-        });
-    });
-}
-
 // Serve thumbnails
 app.use("/thumbnails", express.static(thumbnailFolder));
 
@@ -222,45 +212,6 @@ const documentUpload = multer({
     }
   }
 });
-
-//Thumbnail Function
-async function GenerateThumbnail(videoName, videoLink)
-{
-    return new Promise((resolve, reject) =>
-    {
-        ffmpeg(videoLink)
-
-        .on("end", () =>
-        {
-            resolve(
-                "/thumbnails/" +
-                videoName +
-                ".jpg"
-            );
-        })
-
-        .on("error", (err) =>
-        {
-            reject(err);
-        })
-
-        .screenshots({
-
-            timestamps: ["00:00:02"],
-
-            filename:
-                videoName + ".jpg",
-
-            folder:
-                thumbnailFolder,
-
-            size:
-                "320x180"
-
-        });
-
-    });
-}
 
 /* ===== OTP FUNCTION ===== */
 function generateOTP() {
