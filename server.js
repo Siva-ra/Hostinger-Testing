@@ -1117,6 +1117,8 @@ app.post("/save-video", async (req, res) => {
     try {
         const { video_name, video_link } = req.body;
 
+        console.log("Received:", video_name, video_link);
+
         if (!video_name || !video_link) {
             return res.status(400).json({
                 success: false,
@@ -1124,23 +1126,20 @@ app.post("/save-video", async (req, res) => {
             });
         }
 
-        // Generate thumbnail
         let thumbnail = null;
 
         try {
             thumbnail = await GenerateThumbnail(video_name, video_link);
         } catch (err) {
-            console.error("Thumbnail error:", err.message);
+            console.log("Thumbnail failed:", err.message);
         }
 
-        // Check if video exists
         const [rows] = await db.query(
             "SELECT id FROM videos WHERE video_name = ?",
             [video_name]
         );
 
         if (rows.length > 0) {
-            // Update existing
             await db.query(
                 "UPDATE videos SET video_link = ?, thumbnail = ? WHERE video_name = ?",
                 [video_link, thumbnail, video_name]
@@ -1148,27 +1147,22 @@ app.post("/save-video", async (req, res) => {
 
             return res.json({
                 success: true,
-                message: "Video updated successfully",
-                thumbnail
+                message: "Video updated"
             });
         }
 
-        // Insert new
-        const [result] = await db.query(
+        await db.query(
             "INSERT INTO videos (video_name, video_link, thumbnail) VALUES (?, ?, ?)",
             [video_name, video_link, thumbnail]
         );
 
-        console.log("Video inserted:", result.insertId);
-
         return res.json({
             success: true,
-            message: "Video saved successfully",
-            thumbnail
+            message: "Video inserted"
         });
 
     } catch (err) {
-        console.error("SAVE VIDEO ERROR:", err);
+        console.error(err);
 
         return res.status(500).json({
             success: false,
