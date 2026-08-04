@@ -1077,26 +1077,23 @@ app.post("/login", async (req, res) => {
 function GenerateThumbnail(videoName, videoLink) {
     return new Promise((resolve, reject) => {
 
-        const fileName = `${videoName}.jpg`;
-        const fullPath = path.join(thumbnailFolder, fileName);
-
-        // Delete old thumbnail if it exists
-        if (fs.existsSync(fullPath)) {
-            fs.unlinkSync(fullPath);
-        }
+        console.log("Generating thumbnail from:", videoLink);
 
         ffmpeg(videoLink)
-            .on("end", () => {
-                console.log("Thumbnail created:", fullPath);
-                resolve(`/thumbnails/${fileName}`);
+            .on("start", cmd => {
+                console.log("FFmpeg command:", cmd);
             })
-            .on("error", (err) => {
-                console.error("FFmpeg Error:", err.message);
+            .on("end", () => {
+                console.log("Thumbnail generated successfully");
+                resolve(`/thumbnails/${videoName}.jpg`);
+            })
+            .on("error", err => {
+                console.error("FFmpeg ERROR:", err.message);
                 reject(err);
             })
             .screenshots({
                 timestamps: ["00:00:02"],
-                filename: fileName,
+                filename: `${videoName}.jpg`,
                 folder: thumbnailFolder,
                 size: "320x180"
             });
