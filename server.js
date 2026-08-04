@@ -306,17 +306,18 @@ app.post("/upload-photo/:slot", async (req, res) => {
 });
 
 //Get Photos
+// ================= GET PHOTOS =================
 app.get("/get-photos", async (req, res) => {
     try {
-        const [rows] = await db.query(
-            `SELECT
-                image_id,
+
+        const [rows] = await db.query(`
+            SELECT
                 slot_number,
                 file_name,
-                file_path
-             FROM image_slots
-             ORDER BY slot_number ASC`
-        );
+                image_url AS file_path
+            FROM image_slots
+            ORDER BY slot_number ASC
+        `);
 
         res.json({
             success: true,
@@ -324,12 +325,14 @@ app.get("/get-photos", async (req, res) => {
         });
 
     } catch (err) {
-        console.error(err);
+
+        console.error("Get Photos Error:", err);
 
         res.status(500).json({
             success: false,
             message: err.message
         });
+
     }
 });
 
