@@ -149,7 +149,6 @@ const db = mysql.createPool({
   password: process.env.DB_PASSWORD,
   database: process.env.DB_NAME
 });
-const dbPromise = db.promise();
 
 /* ===== TEST DB CONNECTION ===== */
 db.getConnection()
@@ -1229,9 +1228,9 @@ app.post("/delete-video", async (req, res) => {
         // Delete DB record
         //---------------------------------------------
 
-      const [result] = await dbPromise.query(
-    "DELETE FROM videos WHERE video_name = ?",
-    [video_name]
+     const [result] = await db.query(
+  "INSERT INTO videos (video_name, video_link, thumbnail) VALUES (?, ?, ?)",
+  [video_name, video_link, thumbnail]
 );
 
         console.log(
@@ -1278,8 +1277,9 @@ app.get("/get-videos", async (req, res) => {
 
     try {
 
-       const [rows] = await dbPromise.query(
-    "SELECT id, video_name, video_link, thumbnail FROM videos ORDER BY id ASC"
+       const [rows] = await db.query(
+  "SELECT id FROM videos WHERE video_name = ?",
+  [video_name]
 );
 
         res.json({
