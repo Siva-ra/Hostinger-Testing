@@ -12,17 +12,28 @@ const fs = require("fs");
 require("dotenv").config();
 ffmpeg.setFfmpegPath("/usr/bin/ffmpeg");
 
-function generateThumbnail(videoPath, thumbPath) {
+function GenerateThumbnail(videoName, videoLink) {
     return new Promise((resolve, reject) => {
-        const cmd = `ffmpeg -y -i "${videoPath}" -ss 00:00:01 -frames:v 1 "${thumbPath}"`;
 
-        exec(cmd, (error, stdout, stderr) => {
-            if (error) {
-                console.error("FFmpeg error:", stderr);
-                return reject(error);
-            }
-            resolve(thumbPath);
-        });
+        const fileName = `${videoName}.jpg`;
+
+        ffmpeg(videoLink)
+            .on("start", cmd => console.log("FFmpeg:", cmd))
+            .on("end", () => {
+                console.log("Thumbnail created:", fileName);
+                resolve(`/thumbnails/${fileName}`);
+            })
+            .on("error", err => {
+                console.error("FFmpeg ERROR:", err.message);
+                reject(err);
+            })
+            .screenshots({
+                timestamps: ["00:00:02"],
+                filename: fileName,
+                folder: thumbnailFolder,
+                size: "320x180"
+            });
+
     });
 }
 
