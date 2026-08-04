@@ -1029,6 +1029,12 @@ function GenerateThumbnail(videoName, videoLink) {
         console.log("Generating thumbnail for:", videoName);
         console.log("Video URL:", videoLink);
 
+        // Delete old thumbnail first
+        const thumbPath = path.join(thumbnailFolder, `${videoName}.jpg`);
+        if (fs.existsSync(thumbPath)) {
+            fs.unlinkSync(thumbPath);
+        }
+
         ffmpeg(videoLink)
             .on("start", cmd => {
                 console.log("FFmpeg command:", cmd);
@@ -1037,11 +1043,18 @@ function GenerateThumbnail(videoName, videoLink) {
                 console.log("FFmpeg:", line);
             })
             .on("end", () => {
-                console.log("Thumbnail created:", videoName);
+
+                // Check that file was actually created
+                if (!fs.existsSync(thumbPath)) {
+                    return reject(new Error("Thumbnail file not created"));
+                }
+
+                console.log("Thumbnail created:", thumbPath);
                 resolve(`/thumbnails/${videoName}.jpg`);
             })
             .on("error", err => {
-                console.error("FFmpeg ERROR:", err.message);
+                console.error("FFmpeg ERROR:");
+                console.error(err);
                 reject(err);
             })
             .screenshots({
@@ -1108,16 +1121,31 @@ app.post("/save-video", async (req, res) => {
         );
 
         if (rows.length > 0) {
-            await db.query(
-                "UPDATE videos SET video_link = ?, thumbnail = ? WHERE video_name = ?",
-                [video_link, thumbnail, video_name]
-            );
 
-            return res.json({
-                success: true,
-                message: "Video updated"
-            });
-        }
+    // If thumbnail was created successfully
+    if (thumbnail) {
+
+        await db.query(
+            "UPDATE videos SET video_link = ?, thumbnail = ? WHERE video_name = ?",
+            [video_link, thumbnail, video_name]
+        );
+
+    }
+    else {
+
+        // If thumbnail generation failed, only update the video link
+        await db.query(
+            "UPDATE videos SET video_link = ? WHERE video_name = ?",
+            [video_link, video_name]
+        );
+
+    }
+
+    return res.json({
+        success: true,
+        message: "Video updated"
+    });
+}
 
         await db.query(
             "INSERT INTO videos (video_name, video_link, thumbnail) VALUES (?, ?, ?)",
