@@ -36,6 +36,11 @@ if (!fs.existsSync(photoFolder)) {
 
 // Serve photos folder
 //app.use("/photos", express.static(photoFolder));
+app.use("/photos", (req, res, next) => {
+    console.log("Express received /photos request:", req.url);
+    next();
+});
+
 app.use("/photos", cors(), express.static(photoFolder));
 
 
