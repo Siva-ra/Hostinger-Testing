@@ -77,6 +77,7 @@ if (!fs.existsSync(uploadFolder)) {
     console.log("Upload folder already exists");
 }
 
+//Uploads Folder
 app.use(
     "/uploads",
     (req, res, next) => {
@@ -89,6 +90,17 @@ app.use(
     },
     express.static(uploadFolder)
 );
+
+//Photos Folder
+app.get("/photo/:filename", (req, res) => {
+    const file = path.join(photoFolder, req.params.filename);
+
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
+    res.setHeader("Access-Control-Allow-Headers", "*");
+
+    res.sendFile(file);
+});
 
 /* ===== DATABASE ===== */
 const db = mysql.createPool({
