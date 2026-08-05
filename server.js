@@ -18,19 +18,33 @@ console.log("FFmpeg path:", "/usr/bin/ffmpeg");
 
 const app = express();
 
-// IMPORTANT: define uploadFolder first
 const uploadFolder = path.resolve(
     __dirname,
     "../../../../public_html/uploads"
 );
 
-// New permanent images folder
+//Photo Folder
+const photoFolder = path.resolve(
+    __dirname,
+    "../../../../public_html/photos"
+);
+
+if (!fs.existsSync(photoFolder)) {
+    fs.mkdirSync(photoFolder, { recursive: true });
+}
+
+// Log requests (optional)
+app.use("/photos", (req, res, next) => {
+    console.log("Express received /photos request:", req.url);
+    next();
+});
+
+// Serve photos
+app.use("/photos", cors(), express.static(photoFolder));
+
+// Serve a single photo with CORS
 app.get("/photo/:filename", (req, res) => {
-    const file = path.resolve(
-        __dirname,
-        "../../../../public_html/photos",
-        req.params.filename
-    );
+    const file = path.join(photoFolder, req.params.filename);
 
     console.log("Serving photo:", file);
     console.log("Exists:", fs.existsSync(file));
@@ -42,22 +56,12 @@ app.get("/photo/:filename", (req, res) => {
     if (!fs.existsSync(file)) {
         return res.status(404).json({
             success: false,
-            message: "Photo not found",
-            path: file
+            message: "Photo not found"
         });
     }
 
     res.sendFile(file);
 });
-
-// Serve photos folder
-//app.use("/photos", express.static(photoFolder));
-app.use("/photos", (req, res, next) => {
-    console.log("Express received /photos request:", req.url);
-    next();
-});
-
-app.use("/photos", cors(), express.static(photoFolder));
 
 
 // Thumbnail Folder
