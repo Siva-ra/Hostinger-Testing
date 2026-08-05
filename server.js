@@ -263,7 +263,7 @@ app.post("/upload-photo/:slot", async (req, res) => {
         console.log("File exists:", fs.existsSync(savePath));
 
         const photoUrl =
-            `https://lightgreen-cheetah-775075.hostingersite.com/photos/${newFileName}`;
+            `https://lightgreen-cheetah-775075.hostingersite.com/photo/${newFileName}`;
 
         if (rows.length > 0) {
             await db.query(
