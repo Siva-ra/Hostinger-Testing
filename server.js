@@ -259,6 +259,9 @@ app.post("/upload-photo/:slot", async (req, res) => {
             Buffer.from(cleanBase64, "base64")
         );
 
+        console.log("Saved photo:", savePath);
+        console.log("File exists:", fs.existsSync(savePath));
+
         const photoUrl =
             `https://lightgreen-cheetah-775075.hostingersite.com/photos/${newFileName}`;
 
