@@ -35,9 +35,10 @@ if (!fs.existsSync(photoFolder)) {
 }
 
 // Serve photos folder
-app.use("/photos", express.static(photoFolder));
+//app.use("/photos", express.static(photoFolder));
+app.use("/photos", cors(), express.static(photoFolder));
 
-// -----------------------------------------------------
+
 // Thumbnail Folder
 // -----------------------------------------------------
 const thumbnailFolder = path.resolve(
@@ -87,31 +88,6 @@ app.use(
         next();
     },
     express.static(uploadFolder)
-);
-
-/* ====================== UPLOADS STATIC FOLDER FOR THUMBNAIL ====================== */
-/*
-console.log("thumbnailFolder =", thumbnailFolder);
-
-if (!fs.existsSync(thumbnailFolder)) {
-    console.log("Creating thumbnail folder...");
-    fs.mkdirSync(thumbnailFolder, { recursive: true });
-    console.log("Thumbnail folder created");
-} else {
-    console.log("Thumbnail folder already exists");
-}
-
-app.use(
-    "/thumbnails",
-    (req, res, next) => {
-        res.header("Access-Control-Allow-Origin", "*");
-        res.header(
-            "Access-Control-Allow-Headers",
-            "Origin, X-Requested-With, Content-Type, Accept"
-        );
-        next();
-    },
-    express.static(thumbnailFolder)
 );
 
 /* ===== DATABASE ===== */
