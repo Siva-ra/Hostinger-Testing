@@ -302,17 +302,25 @@ app.get("/get-photos", async (req, res) => {
                 id,
                 slot_number,
                 file_name,
-                file_path,
                 uploaded_at
             FROM image_slots
             ORDER BY slot_number ASC
         `);
 
-        console.log("Photos from DB:", rows);
+        // Always return the Express /photo/ URL
+        const photos = rows.map(row => ({
+            id: row.id,
+            slot_number: row.slot_number,
+            file_name: row.file_name,
+            file_path: `https://lightgreen-cheetah-775075.hostingersite.com/photo/${row.file_name}`,
+            uploaded_at: row.uploaded_at
+        }));
+
+        console.log("Photos returned:", photos);
 
         res.json({
             success: true,
-            photos: rows
+            photos
         });
 
     } catch (err) {
