@@ -291,7 +291,7 @@ app.post("/upload-photo/:slot", async (req, res) => {
         console.log("File exists:", fs.existsSync(savePath));
 
         const photoUrl =
-            `https://lightgreen-cheetah-775075.hostingersite.com/photos/${newFileName}`;
+            `https://lightgreen-cheetah-775075.hostingersite.com/photo/${newFileName}`;
 
         if (rows.length > 0) {
             await db.query(
@@ -343,7 +343,7 @@ app.get("/get-photos", async (req, res) => {
             id: row.id,
             slot_number: row.slot_number,
             file_name: row.file_name,
-            file_path: `https://lightgreen-cheetah-775075.hostingersite.com/photos/${row.file_name}`,
+            file_path: `https://lightgreen-cheetah-775075.hostingersite.com/photo/${row.file_name}`,
             uploaded_at: row.uploaded_at
         }));
 
