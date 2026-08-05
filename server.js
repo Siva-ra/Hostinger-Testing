@@ -24,10 +24,15 @@ const uploadFolder = path.resolve(
 );
 
 //Photo Folder
-const photoFolder = path.resolve(
-    __dirname,
-    "../../../../public_html/photos"
+const photoFolder = path.join(
+    process.env.HOME || "/home/u419061541",
+    "domains",
+    "lightgreen-cheetah-775075.hostingersite.com",
+    "public_html",
+    "photos"
 );
+
+console.log("photoFolder =", photoFolder);
 
 if (!fs.existsSync(photoFolder)) {
     fs.mkdirSync(photoFolder, { recursive: true });
