@@ -113,6 +113,7 @@ app.use(
 );
 
 //Photos Folder
+/*
 app.get("/photo/:filename", (req, res) => {
     const file = path.join(photoFolder, req.params.filename);
 
