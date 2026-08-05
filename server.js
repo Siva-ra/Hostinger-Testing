@@ -305,19 +305,22 @@ app.post("/upload-photo/:slot", async (req, res) => {
     }
 });
 
-//Get Photos
 // ================= GET PHOTOS =================
 app.get("/get-photos", async (req, res) => {
     try {
 
         const [rows] = await db.query(`
             SELECT
+                id,
                 slot_number,
                 file_name,
-                image_url AS file_path
+                file_path,
+                uploaded_at
             FROM image_slots
             ORDER BY slot_number ASC
         `);
+
+        console.log("Photos from DB:", rows);
 
         res.json({
             success: true,
