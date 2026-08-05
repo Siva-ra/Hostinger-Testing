@@ -333,27 +333,39 @@ app.get("/get-photos", async (req, res) => {
                 id,
                 slot_number,
                 file_name,
-                file_path,
                 uploaded_at
             FROM image_slots
             ORDER BY slot_number ASC
         `);
 
+        // Always return the Express /photo/ URL
+        const photos = rows.map(row => ({
+            id: row.id,
+            slot_number: row.slot_number,
+            file_name: row.file_name,
+            file_path: `https://lightgreen-cheetah-775075.hostingersite.com/photo/${row.file_name}`,
+            uploaded_at: row.uploaded_at
+        }));
+
+        console.log("Photos returned:", photos);
+
         res.json({
-            success:true,
-            photos:rows
+            success: true,
+            photos
         });
 
-    } catch(err){
+    } catch (err) {
 
-        console.log(err);
+        console.error("Get Photos Error:", err);
 
         res.status(500).json({
-            success:false,
-            message:err.message
+            success: false,
+            message: err.message
         });
+
     }
 });
+
 /* ====================== UPLOAD 3D MODEL ====================== */
 
 app.post(
