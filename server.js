@@ -25,14 +25,30 @@ const uploadFolder = path.resolve(
 );
 
 // New permanent images folder
-const photoFolder = path.resolve(
-    __dirname,
-    "../../../../public_html/photos"
-);
-// Create folder if it doesn't exist
-if (!fs.existsSync(photoFolder)) {
-    fs.mkdirSync(photoFolder, { recursive: true });
-}
+app.get("/photo/:filename", (req, res) => {
+    const file = path.resolve(
+        __dirname,
+        "../../../../public_html/photos",
+        req.params.filename
+    );
+
+    console.log("Serving photo:", file);
+    console.log("Exists:", fs.existsSync(file));
+
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
+    res.setHeader("Access-Control-Allow-Headers", "*");
+
+    if (!fs.existsSync(file)) {
+        return res.status(404).json({
+            success: false,
+            message: "Photo not found",
+            path: file
+        });
+    }
+
+    res.sendFile(file);
+});
 
 // Serve photos folder
 //app.use("/photos", express.static(photoFolder));
