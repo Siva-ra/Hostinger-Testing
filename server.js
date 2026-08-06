@@ -29,56 +29,64 @@ const photoFolder = path.resolve(
     "../../../../public_html/photos"
 );
 
-console.log("photoFolder =", photoFolder);
+console.log("Photo Folder:", photoFolder);
 
 if (!fs.existsSync(photoFolder)) {
     fs.mkdirSync(photoFolder, { recursive: true });
 }
 
-// Log requests (optional)
+/* =====================================================
+   SERVE PHOTOS
+===================================================== */
+
 app.use("/photos", (req, res, next) => {
-    console.log("Express received /photos request:", req.url);
+    console.log("Photos Request:", req.url);
     next();
 });
 
-// Serve photos
 app.use("/photos", cors(), express.static(photoFolder));
 
-// Serve a single photo with CORS
-app.get("/photo/:filename", (req, res) => {
-    const file = path.join(photoFolder, req.params.filename);
 
-    console.log("Serving photo:", file);
-    console.log("Exists:", fs.existsSync(file));
+/* =====================================================
+   GET SINGLE PHOTO
+===================================================== */
 
-    res.setHeader("Access-Control-Allow-Origin", "*");
-    res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
-    res.setHeader("Access-Control-Allow-Headers", "*");
+app.get("/photo/:filename", async (req, res) => {
 
-    if (!fs.existsSync(file)) {
-        return res.status(404).json({
+    try {
+
+        const filePath = path.join(photoFolder, req.params.filename);
+
+        res.setHeader("Access-Control-Allow-Origin", "*");
+        res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
+        res.setHeader("Access-Control-Allow-Headers", "*");
+
+        if (!fs.existsSync(filePath)) {
+
+            return res.status(404).json({
+                success: false,
+                message: "Photo not found"
+            });
+
+        }
+
+        res.sendFile(filePath);
+
+    } catch (err) {
+
+        console.error(err);
+
+        res.status(500).json({
             success: false,
-            message: "Photo not found"
+            message: err.message
         });
+
     }
 
-    res.sendFile(file);
 });
 
-//Photos Folder
-/* app.get("/photo/:filename", (req, res) => {
-    const file = path.join(photoFolder, req.params.filename);
-
-    res.setHeader("Access-Control-Allow-Origin", "*");
-    res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
-    res.setHeader("Access-Control-Allow-Headers", "*");
-
-    res.sendFile(file);
-}); */
-
-
 // Thumbnail Folder
-// -----------------------------------------------------
+
 const thumbnailFolder = path.resolve(
     __dirname,
     "../../../../public_html/thumbnails"
@@ -231,101 +239,156 @@ function generateOTP() {
 }
 
 /* =====================================================
-   PhotoS UPLOAD
+   UPLOAD PHOTO
 ===================================================== */
-app.post("/upload-photo/:slot", async (req, res) => {
-    try {
-        const slot = parseInt(req.params.slot);
 
-        if (slot < 1 || slot > 5) {
+app.post("/upload-photo/:slot", async (req, res) => {
+
+    try {
+
+
+        const slot = Number(req.params.slot);
+
+        if (isNaN(slot) || slot < 1 || slot > 5) {
+
             return res.status(400).json({
                 success: false,
-                message: "Invalid Slot"
+                message: "Invalid slot number"
             });
+
         }
 
         const { image, fileName } = req.body;
 
         if (!image || !fileName) {
+
             return res.status(400).json({
                 success: false,
-                message: "Missing Photo"
+                message: "Image or filename missing"
             });
+
         }
 
-        const cleanBase64 = image.includes(",") ? image.split(",")[1] : image;
+        // Remove Base64 prefix if present
+        const base64Data = image.includes(",")
+            ? image.split(",")[1]
+            : image;
 
+        // Validate extension
         let extension = path.extname(fileName).toLowerCase();
 
-        if (
-            extension !== ".jpg" &&
-            extension !== ".jpeg" &&
-            extension !== ".png" &&
-            extension !== ".webp"
-        ) {
+        const allowed = [".jpg", ".jpeg", ".png", ".webp"];
+
+        if (!allowed.includes(extension)) {
             extension = ".jpg";
         }
 
+        // Check existing slot
         const [rows] = await db.query(
             "SELECT file_name FROM image_slots WHERE slot_number=?",
             [slot]
         );
 
-        if (rows.length > 0) {
-            const oldPhoto = path.join(photoFolder, rows[0].file_name);
+        // Delete old image
+        if (rows.length > 0 && rows[0].file_name) {
 
-            if (fs.existsSync(oldPhoto)) {
-                fs.unlinkSync(oldPhoto);
+            const oldFile = path.join(photoFolder, rows[0].file_name);
+
+            try {
+
+                await fs.promises.unlink(oldFile);
+
+                console.log("Deleted:", oldFile);
+
+            } catch (e) {
+
+                // Ignore if file doesn't exist
             }
+
         }
 
-        const newFileName = `slot_${slot}_${Date.now()}${extension}`;
-        const savePath = path.join(photoFolder, newFileName);
+       // New filename
+const newFileName = `slot_${slot}_${Date.now()}${extension}`;
 
-        await fs.promises.writeFile(
-            savePath,
-            Buffer.from(cleanBase64, "base64")
-        );
+const savePath = path.join(photoFolder, newFileName);
 
-        console.log("Saved photo:", savePath);
-        console.log("File exists:", fs.existsSync(savePath));
+// Save image
+await fs.promises.writeFile(
+    savePath,
+    Buffer.from(base64Data, "base64")
+);
 
-        const photoUrl =
-            `https://lightgreen-cheetah-775075.hostingersite.com/photo/${newFileName}`;
+console.log("Saved:", savePath);
 
-        if (rows.length > 0) {
-            await db.query(
-                `UPDATE image_slots
-                 SET file_name=?, file_path=?, uploaded_at=NOW()
-                 WHERE slot_number=?`,
-                [newFileName, photoUrl, slot]
-            );
-        } else {
-            await db.query(
-                `INSERT INTO image_slots
-                (slot_number, file_name, file_path)
-                VALUES (?,?,?)`,
-                [slot, newFileName, photoUrl]
-            );
-        }
+// Photo URL
+const photoUrl =
+    `https://lightgreen-cheetah-775075.hostingersite.com/photo/${newFileName}`;
 
-        res.json({
-            success: true,
+// Update database
+if (rows.length > 0) {
+
+    await db.query(
+        `UPDATE image_slots
+         SET
+            file_name=?,
+            file_path=?,
+            uploaded_at=NOW()
+         WHERE slot_number=?`,
+        [
+            newFileName,
+            photoUrl,
+            slot
+        ]
+    );
+
+} else {
+
+    await db.query(
+        `INSERT INTO image_slots
+        (
+            slot_number,
+            file_name,
+            file_path,
+            uploaded_at
+        )
+        VALUES
+        (
+            ?, ?, ?, NOW()
+        )`,
+        [
+            slot,
+            newFileName,
             photoUrl
-        });
+        ]
+    );
 
-    } catch (err) {
-        console.error(err);
+}
 
-        res.status(500).json({
-            success: false,
-            message: err.message
-        });
-    }
+res.json({
+    success: true,
+    message: "Photo uploaded successfully",
+    photoUrl
 });
 
-// ================= GET PHOTOS =================
+} catch (err) {
+
+    console.error("Upload Error:", err);
+
+    res.status(500).json({
+        success: false,
+        message: err.message
+    });
+
+}
+
+});
+
+/* =====================================================
+   GET ALL PHOTOS
+===================================================== */
+
 app.get("/get-photos", async (req, res) => {
+
     try {
 
         const [rows] = await db.query(`
@@ -338,20 +401,32 @@ app.get("/get-photos", async (req, res) => {
             ORDER BY slot_number ASC
         `);
 
-        // Always return the Express /photo/ URL
+
         const photos = rows.map(row => ({
+
             id: row.id,
+
             slot_number: row.slot_number,
+
             file_name: row.file_name,
-            file_path: `https://lightgreen-cheetah-775075.hostingersite.com/photo/${row.file_name}`,
+
+            file_path:
+    row.file_name
+        ? `https://lightgreen-cheetah-775075.hostingersite.com/photo/${row.file_name}`
+        : null,
+
             uploaded_at: row.uploaded_at
+
         }));
 
-        console.log("Photos returned:", photos);
+
 
         res.json({
+
             success: true,
+
             photos
+
         });
 
     } catch (err) {
@@ -359,11 +434,15 @@ app.get("/get-photos", async (req, res) => {
         console.error("Get Photos Error:", err);
 
         res.status(500).json({
+
             success: false,
+
             message: err.message
+
         });
 
     }
+
 });
 
 /* ====================== UPLOAD 3D MODEL ====================== */
