@@ -52,7 +52,7 @@ app.use("/photos", cors(), express.static(photoFolder));
    GET SINGLE PHOTO
 ===================================================== */
 
-app.get("/photos/:filename", async (req, res) => {
+app.get("/photo/:filename", async (req, res) => {
 
     try {
 
@@ -332,7 +332,7 @@ console.log("Saved:", savePath);
 
 // Photo URL
 const photoUrl =
-    `https://lightgreen-cheetah-775075.hostingersite.com/photos/${newFileName}`;
+    `https://lightgreen-cheetah-775075.hostingersite.com/photo/${newFileName}`;
 
 // Update database
 if (rows.length > 0) {
@@ -422,7 +422,7 @@ app.get("/get-photos", async (req, res) => {
 
             file_path:
     row.file_name
-        ? `https://lightgreen-cheetah-775075.hostingersite.com/photos/${row.file_name}`
+        ? `https://lightgreen-cheetah-775075.hostingersite.com/photo/${row.file_name}`
         : null,
 
             uploaded_at: row.uploaded_at
