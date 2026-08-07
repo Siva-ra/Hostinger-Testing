@@ -58,7 +58,7 @@ app.get("/photo/:filename", async (req, res) => {
 
         const filePath = path.join(photoFolder, req.params.filename);
 
-        res.setHeader("Access-Control-Allow-Origin", "*");
+        res.setHeader("Access-Control-Allow-Origin", "https://effetechnology.in/AN4/");
         res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
         res.setHeader("Access-Control-Allow-Headers", "*");
 
