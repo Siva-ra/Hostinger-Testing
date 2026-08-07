@@ -52,13 +52,13 @@ app.use("/photos", cors(), express.static(photoFolder));
    GET SINGLE PHOTO
 ===================================================== */
 
-app.get("/photo/:filename", async (req, res) => {
+app.get("/photos/:filename", async (req, res) => {
 
     try {
 
         const filePath = path.join(photoFolder, req.params.filename);
 
-        res.setHeader("Access-Control-Allow-Origin", "https://effetechnology.in/AN4/");
+        res.setHeader("Access-Control-Allow-Origin", "*");
         res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
         res.setHeader("Access-Control-Allow-Headers", "*");
 
@@ -112,12 +112,12 @@ app.use(cors({
 
 // app.use(express.json());
 app.use(express.json({
-    limit: "2mb"
+    limit: "50mb"
 }));
 
 app.use(express.urlencoded({
     extended: true,
-    limit: "2mb"
+    limit: "50mb"
 }));
 
 /* ====================== UPLOADS STATIC FOLDER FOR 3D MODEL ====================== */
@@ -332,7 +332,7 @@ console.log("Saved:", savePath);
 
 // Photo URL
 const photoUrl =
-    `https://lightgreen-cheetah-775075.hostingersite.com/photo/${newFileName}`;
+    `https://lightgreen-cheetah-775075.hostingersite.com/photos/${newFileName}`;
 
 // Update database
 if (rows.length > 0) {
@@ -422,7 +422,7 @@ app.get("/get-photos", async (req, res) => {
 
             file_path:
     row.file_name
-        ? `https://lightgreen-cheetah-775075.hostingersite.com/photo/${row.file_name}`
+        ? `https://lightgreen-cheetah-775075.hostingersite.com/photos/${row.file_name}`
         : null,
 
             uploaded_at: row.uploaded_at
