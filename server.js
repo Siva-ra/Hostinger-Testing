@@ -24,7 +24,10 @@ const uploadFolder = path.resolve(
     "../../../../public_html/uploads"
 );
 
-//Photo Folder
+// =====================================================
+// PHOTO FOLDER
+// =====================================================
+
 const photoFolder = path.resolve(
     __dirname,
     "../../../../public_html/photos"
@@ -34,57 +37,77 @@ console.log("Photo Folder:", photoFolder);
 
 if (!fs.existsSync(photoFolder)) {
     fs.mkdirSync(photoFolder, { recursive: true });
+    console.log("Created Photo Folder");
 }
 
-/* =====================================================
-   SERVE PHOTOS
-===================================================== */
+// =====================================================
+// SERVE PHOTOS
+// =====================================================
 
 app.use("/photos", (req, res, next) => {
-    console.log("Photos Request:", req.url);
+
+    console.log("Photo Request:", req.url);
+
+    res.header("Access-Control-Allow-Origin", "*");
+    res.header("Access-Control-Allow-Headers", "*");
+    res.header("Access-Control-Allow-Methods", "GET, OPTIONS");
+
     next();
-});
-
-app.use("/photos", cors(), express.static(photoFolder));
-
-
-/* =====================================================
-   GET SINGLE PHOTO
-===================================================== */
-
-app.get("/photo/:filename", async (req, res) => {
-
-    try {
-
-        const filePath = path.join(photoFolder, req.params.filename);
-
-        res.setHeader("Access-Control-Allow-Origin", "*");
-        res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
-        res.setHeader("Access-Control-Allow-Headers", "*");
-
-        if (!fs.existsSync(filePath)) {
-
-            return res.status(404).json({
-                success: false,
-                message: "Photo not found"
-            });
-
-        }
-
-        res.sendFile(filePath);
-
-    } catch (err) {
-
-        console.error(err);
-
-        res.status(500).json({
-            success: false,
-            message: err.message
-        });
-
-    }
 
 });
+
+app.use("/photos", express.static(photoFolder));
+
+// =====================================================
+// BODY LIMIT
+// =====================================================
+
+app.use(express.json({
+    limit: "50mb"
+}));
+
+app.use(express.urlencoded({
+    extended: true,
+    limit: "50mb"
+}));
+
+// /* =====================================================
+//    GET SINGLE PHOTO
+// ===================================================== */
+
+// app.get("/photo/:filename", async (req, res) => {
+
+//     try {
+
+//         const filePath = path.join(photoFolder, req.params.filename);
+
+//         res.setHeader("Access-Control-Allow-Origin", "*");
+//         res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
+//         res.setHeader("Access-Control-Allow-Headers", "*");
+
+//         if (!fs.existsSync(filePath)) {
+
+//             return res.status(404).json({
+//                 success: false,
+//                 message: "Photo not found"
+//             });
+
+//         }
+
+//         res.sendFile(filePath);
+
+//     } catch (err) {
+
+//         console.error(err);
+
+//         res.status(500).json({
+//             success: false,
+//             message: err.message
+//         });
+
+//     }
+
+// });
 
 // Thumbnail Folder
 
@@ -110,15 +133,15 @@ app.use(cors({
 }));
 
 
-// app.use(express.json());
-app.use(express.json({
-    limit: "50mb"
-}));
+// // app.use(express.json());
+// app.use(express.json({
+//     limit: "50mb"
+// }));
 
-app.use(express.urlencoded({
-    extended: true,
-    limit: "50mb"
-}));
+// app.use(express.urlencoded({
+//     extended: true,
+//     limit: "50mb"
+// }));
 
 /* ====================== UPLOADS STATIC FOLDER FOR 3D MODEL ====================== */
 
@@ -270,13 +293,13 @@ app.post("/upload-photo/:slot", async (req, res) => {
 
         const { image, fileName } = req.body;
 
+        
         if (!image || !fileName) {
-
             return res.status(400).json({
                 success: false,
                 message: "Image or filename missing"
             });
-
+            
         }
 
         // Remove Base64 prefix if present
@@ -295,7 +318,7 @@ app.post("/upload-photo/:slot", async (req, res) => {
 
         // Check existing slot
         const [rows] = await db.query(
-            "SELECT file_name FROM image_slots WHERE slot_number=?",
+            "SELECT file_name FROM image_slots WHERE slot_number = ?",
             [slot]
         );
 
@@ -306,97 +329,93 @@ app.post("/upload-photo/:slot", async (req, res) => {
 
             try {
 
-                await fs.promises.unlink(oldFile);
+                if (fs.existsSync(oldFile)) {
+                    await fs.promises.unlink(oldFile);
+                    console.log("Deleted old photo:", oldFile);
+                }
 
-                console.log("Deleted:", oldFile);
-
-            } catch (e) {
-
-                // Ignore if file doesn't exist
+            } catch (err) {
+                console.log("Old photo not found:", oldFile);
             }
 
         }
 
-       // New filename
-const newFileName = `slot_${slot}_${Date.now()}${extension}`;
+        // Generate new filename
+        const newFileName = `slot_${slot}_${Date.now()}${extension}`;
 
-const savePath = path.join(photoFolder, newFileName);
+        // Save image
+        const savePath = path.join(photoFolder, newFileName);
 
-// Save image
-await fs.promises.writeFile(
-    savePath,
-    Buffer.from(base64Data, "base64")
-);
+        await fs.promises.writeFile(
+            savePath,
+            Buffer.from(base64Data, "base64")
+        );
 
-console.log("Saved:", savePath);
+        console.log("Saved:", savePath);
 
-// Photo URL
-const photoUrl =
-    `https://lightgreen-cheetah-775075.hostingersite.com/photo/${newFileName}`;
+        // Public URL
+        const photoUrl =
+            `https://lightgreen-cheetah-775075.hostingersite.com/photos/${newFileName}`;
 
-// Update database
-if (rows.length > 0) {
+        // Update or Insert database
+        if (rows.length > 0) {
 
-    await db.query(
-        `UPDATE image_slots
-         SET
-            file_name=?,
-            file_path=?,
-            uploaded_at=NOW()
-         WHERE slot_number=?`,
-        [
-            newFileName,
-            photoUrl,
-            slot
-        ]
-    );
+            await db.query(
+                `UPDATE image_slots
+                 SET
+                    file_name = ?,
+                    file_path = ?,
+                    uploaded_at = NOW()
+                 WHERE slot_number = ?`,
+                [
+                    newFileName,
+                    photoUrl,
+                    slot
+                ]
+            );
 
-} else {
+        } else {
 
-    await db.query(
-        `INSERT INTO image_slots
-        (
-            slot_number,
-            file_name,
-            file_path,
-            uploaded_at
-        )
-        VALUES
-        (
-            ?, ?, ?, NOW()
-        )`,
-        [
-            slot,
-            newFileName,
-            photoUrl
-        ]
-    );
+            await db.query(
+                `INSERT INTO image_slots
+                (
+                    slot_number,
+                    file_name,
+                    file_path,
+                    uploaded_at
+                )
+                VALUES
+                (
+                    ?, ?, ?, NOW()
+                )`,
+                [
+                    slot,
+                    newFileName,
+                    photoUrl
+                ]
+            );
+        }
 
-}
+        res.json({
+            success: true,
+            message: "Photo uploaded successfully",
+            file_name: newFileName,
+            photoUrl: photoUrl
+        });
 
-res.json({
-    success: true,
-    message: "Photo uploaded successfully",
-    photoUrl
+    } catch (err) {
+
+        console.error("Upload Error:", err);
+
+        res.status(500).json({
+            success: false,
+            message: err.message
+        });
+    }
+
 });
 
-} catch (err) {
-
-    console.error("Upload Error:", err);
-
-    res.status(500).json({
-        success: false,
-        message: err.message
-    });
-
-}
-
-});
-
-/* =====================================================
-   GET ALL PHOTOS
-===================================================== */
-
+//Get Photos
 app.get("/get-photos", async (req, res) => {
 
     try {
@@ -410,7 +429,7 @@ app.get("/get-photos", async (req, res) => {
             FROM image_slots
             ORDER BY slot_number ASC
         `);
-
+        
 
         const photos = rows.map(row => ({
 
@@ -420,16 +439,14 @@ app.get("/get-photos", async (req, res) => {
 
             file_name: row.file_name,
 
-            file_path:
-    row.file_name
-        ? `https://lightgreen-cheetah-775075.hostingersite.com/photo/${row.file_name}`
-        : null,
+            file_path: row.file_name
+                ? `https://lightgreen-cheetah-775075.hostingersite.com/photos/${row.file_name}`
+                : null,
 
             uploaded_at: row.uploaded_at
 
-        }));
-
-
+        })
+      );
 
         res.json({
 
@@ -448,7 +465,7 @@ app.get("/get-photos", async (req, res) => {
             success: false,
 
             message: err.message
-
+            
         });
 
     }
